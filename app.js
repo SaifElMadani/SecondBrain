@@ -17,42 +17,44 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db   = firebase.firestore();
+const db = firebase.firestore();
 const storage = firebase.storage();
 
 // Enable offline persistence
-db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+db.enablePersistence({ synchronizeTabs: true }).catch(() => { });
 
 // ─── STATE ───────────────────────────────────────────────────
 let currentUser = null;
 let userProfile = {};
 let state = {
-  tasks:        [],
-  notes:        [],
-  journal:      {},   // keyed by date string
-  habits:       [],
-  goals:        [],
-  captures:     [],
-  documents:    [],
-  sprints:      [],
-  timeEntries:  [],
+  tasks: [],
+  notes: [],
+  journal: {},   // keyed by date string
+  habits: [],
+  goals: [],
+  captures: [],
+  documents: [],
+  sprints: [],
+  timeEntries: [],
   familyBlocks: [],
-  wins:         [],
+  wins: [],
   babyMilestones: [],
+  googleCalendarEvents: [],
+  outlookCalendarEvents: [],
   settings: {
     name: '',
     babyDueDate: null,
-    areas: ['family','career','growth','health','finance']
+    areas: ['family', 'career', 'growth', 'health', 'finance']
   }
 };
 
 // ─── UTILITIES ────────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 function dk(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function formatMin(m) {
   const h = Math.floor(m / 60), min = m % 60;
@@ -60,7 +62,7 @@ function formatMin(m) {
 }
 function formatSec(s) {
   const m = Math.floor(s / 60), sec = s % 60;
-  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 function relativeDay(dateStr) {
   const today = dk(); const tomorrow = dk(new Date(Date.now() + 86400000));
@@ -81,37 +83,40 @@ function toast(msg, type = 'info', durationMs = 3000) {
 }
 
 // ─── FIRESTORE HELPERS ────────────────────────────────────────
-function userRef() { return db.collection('users').doc(currentUser.uid); }
+function userRef() {
+  if (!currentUser) throw new Error('No authenticated user');
+  return db.collection('users').doc(currentUser.uid);
+}
 function col(name) { return userRef().collection(name); }
 
 async function saveDoc(collection, id, data) {
   try { await col(collection).doc(id).set(data, { merge: true }); }
-  catch(e) { console.error('saveDoc error', e); toast('Save failed', 'error'); }
+  catch (e) { console.error('saveDoc error', e); toast('Save failed', 'error'); }
 }
 async function deleteDoc(collection, id) {
   try { await col(collection).doc(id).delete(); }
-  catch(e) { console.error('deleteDoc error', e); }
+  catch (e) { console.error('deleteDoc error', e); toast('Delete failed', 'error'); }
 }
 async function saveProfile(data) {
   try { await userRef().collection('profile').doc('main').set(data, { merge: true }); }
-  catch(e) { console.error('saveProfile error', e); }
+  catch (e) { console.error('saveProfile error', e); toast('Profile save failed', 'error'); }
 }
 
 // ─── NAVIGATION ──────────────────────────────────────────────
 const VIEWS = {
   dashboard: { title: 'Dashboard', sub: '' },
-  inbox:     { title: 'Inbox', sub: 'Process your quick captures' },
-  tasks:     { title: 'Tasks', sub: 'Focus on what matters' },
-  sprint:    { title: '3-Month Sprint', sub: 'Your quarterly focus system' },
-  notes:     { title: 'Notes', sub: 'Your knowledge base' },
+  inbox: { title: 'Inbox', sub: 'Process your quick captures' },
+  tasks: { title: 'Tasks', sub: 'Focus on what matters' },
+  sprint: { title: '3-Month Sprint', sub: 'Your quarterly focus system' },
+  notes: { title: 'Notes', sub: 'Your knowledge base' },
   documents: { title: 'Documents', sub: 'Files stored in the cloud' },
-  calendar:  { title: 'Calendar', sub: 'Time blocking & events' },
-  goals:     { title: 'Goals & Habits', sub: 'Long-term growth' },
-  journal:   { title: 'Journal', sub: 'Daily reflection' },
-  family:    { title: 'Family Mode', sub: 'Sacred time & baby milestones' },
-  areas:     { title: 'Life Areas', sub: 'Balance across all five areas' },
+  calendar: { title: 'Calendar', sub: 'Time blocking & events' },
+  goals: { title: 'Goals & Habits', sub: 'Long-term growth' },
+  journal: { title: 'Journal', sub: 'Daily reflection' },
+  family: { title: 'Family Mode', sub: 'Sacred time & baby milestones' },
+  areas: { title: 'Life Areas', sub: 'Balance across all five areas' },
   timeaudit: { title: 'Time Audit', sub: 'Build real intuition about time' },
-  wins:      { title: 'Wins Log', sub: 'Every completion matters' }
+  wins: { title: 'Wins Log', sub: 'Every completion matters' }
 };
 
 let currentView = 'dashboard';
@@ -146,20 +151,20 @@ function goTo(viewId) {
 }
 
 function renderView(id) {
-  switch(id) {
-    case 'dashboard':   renderDashboard(); break;
-    case 'inbox':       renderInbox(); break;
-    case 'tasks':       renderTasks(); break;
-    case 'sprint':      renderSprint(); break;
-    case 'notes':       renderNotesList(); break;
-    case 'documents':   renderDocuments(); break;
-    case 'calendar':    renderCalendar(); break;
-    case 'goals':       renderGoals(); break;
-    case 'journal':     renderJournal(); break;
-    case 'family':      renderFamily(); break;
-    case 'areas':       renderAreas(); break;
-    case 'timeaudit':   renderTimeAudit(); break;
-    case 'wins':        renderWins(); break;
+  switch (id) {
+    case 'dashboard': renderDashboard(); break;
+    case 'inbox': renderInbox(); break;
+    case 'tasks': renderTasks(); break;
+    case 'sprint': renderSprint(); break;
+    case 'notes': renderNotesList(); break;
+    case 'documents': renderDocuments(); break;
+    case 'calendar': renderCalendar(); break;
+    case 'goals': renderGoals(); break;
+    case 'journal': renderJournal(); break;
+    case 'family': renderFamily(); break;
+    case 'areas': renderAreas(); break;
+    case 'timeaudit': renderTimeAudit(); break;
+    case 'wins': renderWins(); break;
   }
 }
 
@@ -188,19 +193,19 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 // AUTH
 // ═══════════════════════════════════════════════════════════════
 let isSignUp = false;
-const authForm       = document.getElementById('auth-form');
-const authError      = document.getElementById('auth-error');
-const authSpinner    = document.getElementById('auth-spinner');
-const authBtnLabel   = document.getElementById('auth-btn-label');
-const authTitle      = document.getElementById('auth-title');
-const authSub        = document.getElementById('auth-sub');
-const authToggleBtn  = document.getElementById('auth-toggle-btn');
+const authForm = document.getElementById('auth-form');
+const authError = document.getElementById('auth-error');
+const authSpinner = document.getElementById('auth-spinner');
+const authBtnLabel = document.getElementById('auth-btn-label');
+const authTitle = document.getElementById('auth-title');
+const authSub = document.getElementById('auth-sub');
+const authToggleBtn = document.getElementById('auth-toggle-btn');
 const authToggleText = document.getElementById('auth-toggle-text');
 
 authToggleBtn.addEventListener('click', () => {
   isSignUp = !isSignUp;
-  authTitle.textContent   = isSignUp ? 'Create your account' : 'Welcome back';
-  authSub.textContent     = isSignUp ? 'Your second brain awaits' : 'Sign in to your personal OS';
+  authTitle.textContent = isSignUp ? 'Create your account' : 'Welcome back';
+  authSub.textContent = isSignUp ? 'Your second brain awaits' : 'Sign in to your personal OS';
   authBtnLabel.textContent = isSignUp ? 'Create Account' : 'Sign In';
   authToggleText.textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
   authToggleBtn.textContent = isSignUp ? ' Sign in' : ' Sign up';
@@ -214,7 +219,7 @@ function showAuthSpinner(show) {
 
 authForm.addEventListener('submit', e => {
   e.preventDefault();
-  const email    = document.getElementById('auth-email').value.trim();
+  const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   authError.classList.remove('show');
   showAuthSpinner(true);
@@ -249,14 +254,14 @@ document.getElementById('btn-microsoft-signin').addEventListener('click', () => 
 
 function friendlyAuthError(code) {
   const map = {
-    'auth/invalid-email':        'Invalid email address.',
-    'auth/user-not-found':       'No account found with this email.',
-    'auth/wrong-password':       'Incorrect password.',
-    'auth/invalid-credential':   'Invalid credentials. Check your details.',
+    'auth/invalid-email': 'Invalid email address.',
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/invalid-credential': 'Invalid credentials. Check your details.',
     'auth/email-already-in-use': 'An account with this email already exists.',
-    'auth/weak-password':        'Password must be at least 6 characters.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
     'auth/popup-closed-by-user': 'Sign-in popup was closed.',
-    'auth/popup-blocked':        'Popup was blocked. Please allow popups and try again.',
+    'auth/popup-blocked': 'Popup was blocked. Please allow popups and try again.',
     'auth/account-exists-with-different-credential': 'An account already exists with a different sign-in method.'
   };
   return map[code] || `Sign-in error: ${code}`;
@@ -270,7 +275,7 @@ auth.onAuthStateChanged(async user => {
   if (user) {
     currentUser = user;
     document.getElementById('screen-login').classList.remove('active');
-    try { await loadAllData(); } catch(e) { console.error('loadAllData error', e); }
+    try { await loadAllData(); } catch (e) { console.error('loadAllData error', e); }
     checkOnboarding();
   } else {
     currentUser = null;
@@ -291,9 +296,9 @@ async function loadAllData() {
   }
 
   // Load collections
-  const collections = ['tasks','notes','habits','goals','captures','documents','sprints','timeEntries','familyBlocks','wins','babyMilestones'];
+  const collections = ['tasks', 'notes', 'habits', 'goals', 'captures', 'documents', 'sprints', 'timeEntries', 'familyBlocks', 'wins', 'babyMilestones'];
   for (const c of collections) {
-    const snap = await col(c).orderBy('createdAt','desc').get().catch(() => ({ docs: [] }));
+    const snap = await col(c).orderBy('createdAt', 'desc').get().catch(() => ({ docs: [] }));
     state[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
 
@@ -328,7 +333,7 @@ function checkOnboarding() {
 
 function showObStep(n) {
   obStep = n;
-  [0,1,2].forEach(i => {
+  [0, 1, 2].forEach(i => {
     document.getElementById(`ob-step-${i}`).style.display = i === n ? 'block' : 'none';
     document.getElementById(`ob-dot-${i}`).classList.toggle('active', i <= n);
   });
@@ -347,7 +352,7 @@ document.getElementById('ob-back-2').addEventListener('click', () => showObStep(
 
 document.getElementById('ob-finish').addEventListener('click', async () => {
   const goal = document.getElementById('ob-sprint-goal').value.trim();
-  const due  = document.getElementById('ob-due-date').value;
+  const due = document.getElementById('ob-due-date').value;
   state.settings.onboardingDone = true;
   state.settings.babyDueDate = due || null;
   await saveProfile({ ...state.settings, onboardingDone: true, babyDueDate: due || null });
@@ -409,20 +414,21 @@ function launchApp() {
   startDayProgressTicker();
   startHourlyNudge();
   updateInboxBadge();
+  restoreCalendarConnections();
 }
 
 // ═══════════════════════════════════════════════════════════════
 // MORNING / EVENING RITUAL
 // ═══════════════════════════════════════════════════════════════
 const MORNING_QS = [
-  { key: 'morningFocus',    text: "What's your ONE priority today?", type: 'text' },
-  { key: 'morningMood',     text: "How are you feeling right now?", type: 'mood' },
+  { key: 'morningFocus', text: "What's your ONE priority today?", type: 'text' },
+  { key: 'morningMood', text: "How are you feeling right now?", type: 'mood' },
   { key: 'morningObstacle', text: "What could go wrong today, and how will you handle it?", type: 'text' }
 ];
 const EVENING_QS = [
-  { key: 'eveningDone',    text: "Did you complete your one priority?", type: 'text' },
-  { key: 'eveningWell',    text: "What went well today?", type: 'text' },
-  { key: 'eveningTomorrow',text: "What do you want to do differently tomorrow?", type: 'text' }
+  { key: 'eveningDone', text: "Did you complete your one priority?", type: 'text' },
+  { key: 'eveningWell', text: "What went well today?", type: 'text' },
+  { key: 'eveningTomorrow', text: "What do you want to do differently tomorrow?", type: 'text' }
 ];
 
 let ritualType = 'morning', ritualStep = 0, ritualAnswers = {};
@@ -454,10 +460,10 @@ function openRitual(type) {
 function showRitualStep(step) {
   ritualStep = step;
   const qs = ritualType === 'morning' ? MORNING_QS : EVENING_QS;
-  const q  = qs[step];
-  document.getElementById('ritual-q-num').textContent  = `Question ${step + 1} of ${qs.length}`;
+  const q = qs[step];
+  document.getElementById('ritual-q-num').textContent = `Question ${step + 1} of ${qs.length}`;
   document.getElementById('ritual-q-text').textContent = q.text;
-  document.getElementById('ritual-next').textContent   = step < qs.length - 1 ? 'Next →' : 'Finish ✓';
+  document.getElementById('ritual-next').textContent = step < qs.length - 1 ? 'Next →' : 'Finish ✓';
 
   // Progress bars
   for (let i = 0; i < 3; i++) {
@@ -495,12 +501,12 @@ document.getElementById('ritual-energy').addEventListener('input', e => {
 });
 
 document.getElementById('ritual-next').addEventListener('click', async () => {
-  const qs  = ritualType === 'morning' ? MORNING_QS : EVENING_QS;
-  const q   = qs[ritualStep];
+  const qs = ritualType === 'morning' ? MORNING_QS : EVENING_QS;
+  const q = qs[ritualStep];
 
   if (q.type === 'mood') {
     const selected = document.querySelector('.mood-btn.selected');
-    ritualAnswers[q.key]   = selected ? selected.dataset.mood : '🙂';
+    ritualAnswers[q.key] = selected ? selected.dataset.mood : '🙂';
     ritualAnswers['energy'] = document.getElementById('ritual-energy').value;
   } else {
     ritualAnswers[q.key] = document.getElementById('ritual-answer').value.trim();
@@ -546,11 +552,11 @@ function renderDashboard() {
 }
 
 function renderGreeting() {
-  const now  = new Date();
+  const now = new Date();
   const hour = now.getHours();
   const name = state.settings.name || 'there';
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   let greeting = 'Good evening';
   if (hour < 12) greeting = 'Good morning';
@@ -572,9 +578,9 @@ function renderGreeting() {
 }
 
 function renderTimeRing() {
-  const now   = new Date();
+  const now = new Date();
   const start = new Date(now); start.setHours(7, 0, 0, 0);  // 7am
-  const end   = new Date(now); end.setHours(22, 0, 0, 0);   // 10pm
+  const end = new Date(now); end.setHours(22, 0, 0, 0);   // 10pm
   let pct = ((now - start) / (end - start)) * 100;
   pct = Math.max(0, Math.min(100, pct));
 
@@ -640,11 +646,11 @@ function renderDashStats() {
   const startOfWeekStr = dk(startOfWeek);
 
   const doneTodayCount = state.tasks.filter(t => t.done && t.completedAt?.startsWith?.(today)).length;
-  const doneWeekCount  = state.tasks.filter(t => t.done && t.completedAt >= startOfWeekStr).length;
+  const doneWeekCount = state.tasks.filter(t => t.done && t.completedAt >= startOfWeekStr).length;
   const maxStreak = state.habits.reduce((max, h) => Math.max(max, calcStreak(h.checkIns || [])), 0);
 
   document.getElementById('stat-tasks-done').textContent = doneTodayCount;
-  document.getElementById('stat-streak').textContent     = maxStreak;
+  document.getElementById('stat-streak').textContent = maxStreak;
   document.getElementById('stat-week-tasks').textContent = doneWeekCount;
 }
 
@@ -669,7 +675,7 @@ function renderDashFamilyBlocks() {
 
 function renderDashRitualSummary() {
   const el = document.getElementById('dash-ritual-summary');
-  const j  = state.journal[dk()];
+  const j = state.journal[dk()];
   if (!j?.morningDone) {
     el.innerHTML = `<div style="font-size:13px; color:var(--text-muted)">Complete your <span style="color:var(--accent-light); cursor:pointer" onclick="openRitual('morning')">morning ritual →</span></div>`;
     return;
@@ -802,14 +808,14 @@ async function processCapture(id, targetType) {
   if (!cap) return;
 
   if (targetType === 'task') {
-    openAddTaskModal(cap.content);
+    openAddTaskModal(cap.content, id);
   } else if (targetType === 'note') {
     await createNoteFromCapture(cap);
+    cap.processed = true;
+    await saveDoc('captures', id, { processed: true });
+    updateInboxBadge();
+    renderInbox();
   }
-  cap.processed = true;
-  await saveDoc('captures', id, { processed: true });
-  updateInboxBadge();
-  renderInbox();
 }
 
 async function dismissCapture(id) {
@@ -901,16 +907,16 @@ function renderTasks() {
   }).join('');
 }
 
-function openAddTaskModal(prefill = '') {
+function openAddTaskModal(prefill = '', captureId = null) {
   openModal({
     title: 'New Task',
     sub: 'Give it a time estimate — it helps with time blindness',
     fields: [
-      { name: 'title',    label: 'Task', placeholder: 'What needs to happen?', required: true, value: prefill },
-      { name: 'dueDate',  label: 'Due Date', type: 'date' },
+      { name: 'title', label: 'Task', placeholder: 'What needs to happen?', required: true, value: prefill },
+      { name: 'dueDate', label: 'Due Date', type: 'date' },
       { name: 'duration', label: 'Time Estimate (minutes)', type: 'number', placeholder: '30' },
-      { name: 'priority', label: 'Priority', type: 'select', options: [['medium','Medium'],['high','High'],['low','Low']] },
-      { name: 'area',     label: 'Life Area', type: 'select', options: [['','None'],['family','Family'],['career','Career'],['growth','Growth'],['health','Health'],['finance','Finance']] }
+      { name: 'priority', label: 'Priority', type: 'select', options: [['medium', 'Medium'], ['high', 'High'], ['low', 'Low']] },
+      { name: 'area', label: 'Life Area', type: 'select', options: [['', 'None'], ['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['health', 'Health'], ['finance', 'Finance']] }
     ],
     submit: 'Add Task',
     onSubmit: async v => {
@@ -927,6 +933,12 @@ function openAddTaskModal(prefill = '') {
       };
       state.tasks.unshift(data);
       await saveDoc('tasks', id, data);
+      if (captureId) {
+        const cap = state.captures.find(c => c.id === captureId);
+        if (cap) { cap.processed = true; await saveDoc('captures', captureId, { processed: true }); }
+        updateInboxBadge();
+        if (currentView === 'inbox') renderInbox();
+      }
       renderTasks();
       if (currentView === 'dashboard') renderDashStats();
     }
@@ -959,11 +971,11 @@ async function deleteTask(id) {
 // ═══════════════════════════════════════════════════════════════
 // TASK TIMER
 // ═══════════════════════════════════════════════════════════════
-let timerInterval    = null;
-let timerTaskId      = null;
+let timerInterval = null;
+let timerTaskId = null;
 let timerSecondsLeft = 0;
-let timerTotalSec    = 0;
-let timerStartTime   = null;
+let timerTotalSec = 0;
+let timerStartTime = null;
 
 function startTaskTimer(id) {
   const task = state.tasks.find(t => t.id === id);
@@ -972,8 +984,8 @@ function startTaskTimer(id) {
     toast('Set a time estimate on this task first', 'error'); return;
   }
 
-  timerTaskId    = id;
-  timerTotalSec  = task.duration * 60;
+  timerTaskId = id;
+  timerTotalSec = task.duration * 60;
   timerSecondsLeft = timerTotalSec;
   timerStartTime = Date.now();
 
@@ -993,11 +1005,11 @@ function startTaskTimer(id) {
 
 function updateTimerDisplay() {
   const display = document.getElementById('timer-display');
-  const fill    = document.getElementById('timer-bar-fill');
-  const pct     = (timerSecondsLeft / timerTotalSec) * 100;
+  const fill = document.getElementById('timer-bar-fill');
+  const pct = (timerSecondsLeft / timerTotalSec) * 100;
 
   display.textContent = formatSec(timerSecondsLeft);
-  fill.style.width    = `${pct}%`;
+  fill.style.width = `${pct}%`;
 
   const urgent = timerSecondsLeft < 120;
   display.classList.toggle('urgent', urgent);
@@ -1095,8 +1107,8 @@ function renderSprint() {
   // Quarter progress (days elapsed in quarter)
   const now = new Date();
   const qStart = getQuarterStart();
-  const qEnd   = getQuarterEnd();
-  const qPct   = Math.min(100, Math.round(((now - qStart) / (qEnd - qStart)) * 100));
+  const qEnd = getQuarterEnd();
+  const qPct = Math.min(100, Math.round(((now - qStart) / (qEnd - qStart)) * 100));
   document.getElementById('sprint-q-pct').textContent = `${qPct}%`;
   document.getElementById('sprint-q-fill').style.width = `${qPct}%`;
 
@@ -1112,13 +1124,13 @@ function renderSprint() {
         <div class="sprint-obj-title">${esc(o.title)}</div>
         <div class="sprint-obj-progress">${o.progress || 0}%</div>
         <div class="stepper" style="gap:6px">
-          <button onclick="adjustSprintProgress('${sprint.id}','${o.id}',-10)" style="width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center">−</button>
-          <button onclick="adjustSprintProgress('${sprint.id}','${o.id}',10)" style="width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center">+</button>
+          <button onclick="adjustSprintProgress('${sprint.id}','${o.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">−</button>
+          <button onclick="adjustSprintProgress('${sprint.id}','${o.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">+</button>
         </div>
-        <button onclick="deleteSprintObjective('${sprint.id}','${o.id}')" style="color:var(--text-muted);font-size:16px;padding:4px" title="Remove">×</button>
+        <button onclick="deleteSprintObjective('${sprint.id}','${o.id}')" style="color:var(--text-muted);font-size:18px;padding:8px" title="Remove">×</button>
       </div>
-      <div class="prog-track"><div class="prog-fill" style="width:${o.progress||0}%"></div></div>
-      ${(o.weeklyActions||[]).length ? `
+      <div class="prog-track"><div class="prog-fill" style="width:${o.progress || 0}%"></div></div>
+      ${(o.weeklyActions || []).length ? `
       <div class="sprint-weekly">
         <div class="sprint-weekly-title">This week's actions</div>
         ${o.weeklyActions.map(a => `<div class="sprint-action-item"><span style="color:var(--accent)">→</span> ${esc(a)}</div>`).join('')}
@@ -1187,7 +1199,7 @@ function getQuarterEnd() {
 // NOTES
 // ═══════════════════════════════════════════════════════════════
 let currentNoteId = null;
-let noteAutoSave  = null;
+let noteAutoSave = null;
 
 function renderNotesList() {
   const search = document.getElementById('note-search').value.toLowerCase();
@@ -1234,7 +1246,7 @@ function openNote(id) {
   wrap.style.display = 'flex';
 
   document.getElementById('note-title-input').value = note.title || '';
-  document.getElementById('note-editor').innerHTML  = note.content || '';
+  document.getElementById('note-editor').innerHTML = note.content || '';
   renderNotesList();
 }
 
@@ -1242,7 +1254,7 @@ async function saveCurrentNote() {
   if (!currentNoteId) return;
   const note = state.notes.find(n => n.id === currentNoteId);
   if (!note) return;
-  note.title   = document.getElementById('note-title-input').value.trim() || 'Untitled';
+  note.title = document.getElementById('note-title-input').value.trim() || 'Untitled';
   note.content = document.getElementById('note-editor').innerHTML;
   note.updatedAt = Date.now();
   await saveDoc('notes', currentNoteId, { title: note.title, content: note.content, updatedAt: note.updatedAt });
@@ -1294,7 +1306,7 @@ async function createNoteFromCapture(capture) {
 // DOCUMENTS
 // ═══════════════════════════════════════════════════════════════
 const docUploadZone = document.getElementById('doc-upload-zone');
-const docFileInput  = document.getElementById('doc-file-input');
+const docFileInput = document.getElementById('doc-file-input');
 
 docUploadZone.addEventListener('click', () => docFileInput.click());
 docUploadZone.addEventListener('dragover', e => { e.preventDefault(); docUploadZone.classList.add('dragover'); });
@@ -1307,17 +1319,17 @@ async function handleFileUpload(files) {
     if (file.size > 20 * 1024 * 1024) { toast(`${file.name} is too large (max 20MB)`, 'error'); continue; }
     toast(`Uploading ${file.name}…`, 'info', 10000);
     try {
-      const path  = `users/${currentUser.uid}/documents/${uid()}_${file.name}`;
-      const ref   = storage.ref(path);
-      const snap  = await ref.put(file);
-      const url   = await snap.ref.getDownloadURL();
-      const id    = uid();
-      const data  = { id, name: file.name, size: file.size, mimeType: file.type, storagePath: path, url, folder: '', tags: [], uploadedAt: Date.now(), createdAt: Date.now() };
+      const path = `users/${currentUser.uid}/documents/${uid()}_${file.name}`;
+      const ref = storage.ref(path);
+      const snap = await ref.put(file);
+      const url = await snap.ref.getDownloadURL();
+      const id = uid();
+      const data = { id, name: file.name, size: file.size, mimeType: file.type, storagePath: path, url, folder: '', tags: [], uploadedAt: Date.now(), createdAt: Date.now() };
       state.documents.unshift(data);
       await saveDoc('documents', id, data);
       toast(`${file.name} uploaded ✓`, 'success');
       renderDocuments();
-    } catch(e) { toast(`Failed to upload ${file.name}: ${e.message}`, 'error'); }
+    } catch (e) { toast(`Failed to upload ${file.name}: ${e.message}`, 'error'); }
   }
 }
 
@@ -1334,7 +1346,7 @@ function renderDocuments() {
   }
   grid.innerHTML = docs.map(d => {
     const icon = d.mimeType?.includes('pdf') ? '📄' : d.mimeType?.includes('image') ? '🖼️' : d.mimeType?.includes('word') ? '📝' : '📎';
-    const size = d.size > 1e6 ? `${(d.size/1e6).toFixed(1)} MB` : `${Math.round(d.size/1024)} KB`;
+    const size = d.size > 1e6 ? `${(d.size / 1e6).toFixed(1)} MB` : `${Math.round(d.size / 1024)} KB`;
     return `<div class="doc-card" onclick="openDocument('${d.id}')">
       <div class="doc-card-icon">${icon}</div>
       <div class="doc-card-name">${esc(d.name)}</div>
@@ -1359,7 +1371,7 @@ async function deleteDocument(id) {
   if (!doc || !confirm(`Delete "${doc.name}"?`)) return;
   try {
     if (doc.storagePath) await storage.ref(doc.storagePath).delete();
-  } catch(e) {}
+  } catch (e) { }
   state.documents = state.documents.filter(d => d.id !== id);
   await deleteDoc('documents', id);
   renderDocuments();
@@ -1370,23 +1382,231 @@ document.getElementById('doc-search').addEventListener('input', renderDocuments)
 // ═══════════════════════════════════════════════════════════════
 // CALENDAR
 // ═══════════════════════════════════════════════════════════════
-const MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const WDAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-let calYear   = new Date().getFullYear();
-let calMonth  = new Date().getMonth();
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
 
 document.getElementById('cal-prev').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); });
 document.getElementById('cal-next').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); });
 document.getElementById('cal-today').addEventListener('click', () => { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); renderCalendar(); });
 document.getElementById('add-event-btn').addEventListener('click', openAddEventModal);
 
-// Calendar connect stubs (OAuth setup required outside app)
+// ═══════════════════════════════════════════════════════════════
+// EXTERNAL CALENDAR INTEGRATION
+// ═══════════════════════════════════════════════════════════════
+
+// --- GOOGLE CALENDAR ---
+const GCAL_CLIENT_ID = '865375487797-i4h2uhhv0evdovbbuka8amsmfm6hargs.apps.googleusercontent.com';
+const GCAL_API_KEY = 'AIzaSyBN6vh3XpSDetwl9l8raARL-aadfgnyNc4';
+const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+const GCAL_DISCOVERY = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+
+let gcalTokenClient;
+let gapiInited = false, gisInited = false;
+
+window.gapiLoaded = function () {
+  gapi.load('client', async () => {
+    await gapi.client.init({ apiKey: GCAL_API_KEY, discoveryDocs: [GCAL_DISCOVERY] });
+    gapiInited = true;
+    if (gisInited) enableCalButtons();
+  });
+};
+
+window.gisLoaded = function () {
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID,
+    scope: GCAL_SCOPES,
+    callback: handleGcalAuth,
+  });
+  gisInited = true;
+  if (gapiInited) enableCalButtons();
+};
+
+function enableCalButtons() {
+  const gc = document.getElementById('btn-connect-google-cal');
+  const oc = document.getElementById('btn-connect-outlook-cal');
+  if (gc) gc.classList.remove('disabled');
+  if (oc) oc.classList.remove('disabled');
+}
+
+async function handleGcalAuth(resp) {
+  if (resp.error) {
+    toast('Google Calendar sign-in failed', 'error');
+    return;
+  }
+  localStorage.setItem('gcal_connected', 'true');
+  const btn = document.getElementById('btn-connect-google-cal');
+  btn.classList.add('connected');
+  btn.textContent = '✓ Google Calendar Connected';
+  toast('Google Calendar connected!', 'success');
+  await fetchGoogleCalendarEvents();
+  renderCalendar();
+}
+
+async function fetchGoogleCalendarEvents() {
+  if (!gapiInited || !gapi.client?.calendar) return;
+  try {
+    const now = new Date();
+    const timeMin = new Date(calYear, calMonth, 1).toISOString();
+    const timeMax = new Date(calYear, calMonth + 1, 0, 23, 59, 59).toISOString();
+    const response = await gapi.client.calendar.events.list({
+      calendarId: 'primary', timeMin, timeMax,
+      singleEvents: true, maxResults: 100, orderBy: 'startTime',
+    });
+    state.googleCalendarEvents = (response.result.items || []).map(e => ({
+      title: e.summary || '(No title)',
+      date: (e.start.date || e.start.dateTime || '').slice(0, 10),
+      startTime: e.start.dateTime ? e.start.dateTime.slice(11, 16) : 'All day',
+      endTime: e.end.dateTime ? e.end.dateTime.slice(11, 16) : '',
+      source: 'google',
+    }));
+  } catch (e) {
+    console.error('Google Calendar fetch error', e);
+    toast('Failed to fetch Google Calendar events', 'error');
+  }
+}
+
+function connectGoogleCalendar() {
+  if (!gapiInited || !gisInited) {
+    toast('Google Calendar SDKs still loading, try again in a moment', 'info');
+    return;
+  }
+  const token = gapi.client.getToken();
+  if (token) {
+    gapi.client.setToken('');
+  }
+  gcalTokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function disconnectGoogleCalendar() {
+  const token = gapi.client.getToken();
+  if (token) google.accounts.oauth2.revoke(token.access_token);
+  gapi.client.setToken('');
+  localStorage.removeItem('gcal_connected');
+  state.googleCalendarEvents = [];
+  const btn = document.getElementById('btn-connect-google-cal');
+  btn.classList.remove('connected');
+  btn.textContent = 'Connect Google Calendar';
+  renderCalendar();
+  toast('Google Calendar disconnected', 'info');
+}
+
+// --- OUTLOOK / MICROSOFT CALENDAR ---
+const O365_CLIENT_ID = 'YOUR_MICROSOFT_CLIENT_ID';
+const O365_SCOPES = ['Calendars.ReadWrite', 'User.Read', 'offline_access', 'openid', 'profile', 'email'];
+
+let msalInstance = null;
+let outlookAccount = null;
+
+function initMSAL() {
+  if (typeof msal === 'undefined') return;
+  msalInstance = new msal.PublicClientApplication({
+    auth: {
+      clientId: O365_CLIENT_ID,
+      redirectUri: window.location.origin,
+      navigateToLoginRequestUrl: false,
+    },
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+  });
+  msalInstance.handleRedirectPromise().catch(console.error);
+}
+
+async function connectOutlookCalendar() {
+  if (!msalInstance) { toast('Microsoft SDK still loading', 'info'); return; }
+  try {
+    const resp = await msalInstance.loginPopup({ scopes: O365_SCOPES });
+    msalInstance.setActiveAccount(resp.account);
+    outlookAccount = resp.account;
+    localStorage.setItem('outlook_connected', 'true');
+    const btn = document.getElementById('btn-connect-outlook-cal');
+    btn.classList.add('connected');
+    btn.textContent = '✓ Outlook Connected';
+    toast('Outlook Calendar connected!', 'success');
+    await fetchOutlookCalendarEvents();
+    renderCalendar();
+  } catch (e) {
+    console.error('Outlook auth error', e);
+    if (e.errorCode !== 'user_cancelled') toast('Outlook sign-in failed', 'error');
+  }
+}
+
+async function fetchOutlookCalendarEvents() {
+  if (!msalInstance || !outlookAccount) return;
+  try {
+    const tokenResp = await msalInstance.acquireTokenSilent({ scopes: O365_SCOPES, account: outlookAccount });
+    const start = new Date(calYear, calMonth, 1).toISOString();
+    const end = new Date(calYear, calMonth + 1, 0, 23, 59, 59).toISOString();
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${start}&endDateTime=${end}&$top=50&$orderby=start/dateTime`,
+      { headers: { Authorization: `Bearer ${tokenResp.accessToken}` } }
+    );
+    const data = await res.json();
+    state.outlookCalendarEvents = (data.value || []).map(e => ({
+      title: e.subject || '(No title)',
+      date: (e.start.dateTime || e.start.date || '').slice(0, 10),
+      startTime: e.start.dateTime ? e.start.dateTime.slice(11, 16) : 'All day',
+      endTime: e.end.dateTime ? e.end.dateTime.slice(11, 16) : '',
+      source: 'outlook',
+    }));
+  } catch (e) {
+    console.error('Outlook Calendar fetch error', e);
+    if (e.errorCode === 'invalid_grant') {
+      toast('Outlook session expired, please reconnect', 'info');
+      disconnectOutlookCalendar();
+    } else {
+      toast('Failed to fetch Outlook events', 'error');
+    }
+  }
+}
+
+function disconnectOutlookCalendar() {
+  if (msalInstance && outlookAccount) msalInstance.logoutPopup({ account: outlookAccount }).catch(() => { });
+  outlookAccount = null;
+  localStorage.removeItem('outlook_connected');
+  state.outlookCalendarEvents = [];
+  const btn = document.getElementById('btn-connect-outlook-cal');
+  btn.classList.remove('connected');
+  btn.textContent = 'Connect Outlook Calendar';
+  renderCalendar();
+  toast('Outlook Calendar disconnected', 'info');
+}
+
+// --- CAL BUTTON HANDLERS ---
 document.getElementById('btn-connect-google-cal').addEventListener('click', () => {
-  toast('Google Calendar integration requires OAuth setup in Google Cloud Console. See README for instructions.', 'info', 5000);
+  const btn = document.getElementById('btn-connect-google-cal');
+  if (btn.classList.contains('connected')) { disconnectGoogleCalendar(); return; }
+  connectGoogleCalendar();
 });
 document.getElementById('btn-connect-outlook-cal').addEventListener('click', () => {
-  toast('Outlook integration requires Azure AD app registration. See README for instructions.', 'info', 5000);
+  const btn = document.getElementById('btn-connect-outlook-cal');
+  if (btn.classList.contains('connected')) { disconnectOutlookCalendar(); return; }
+  connectOutlookCalendar();
 });
+
+// Restore connection state on load
+function restoreCalendarConnections() {
+  if (localStorage.getItem('gcal_connected') === 'true' && gapiInited && gisInited) {
+    const btn = document.getElementById('btn-connect-google-cal');
+    btn.classList.add('connected');
+    btn.textContent = '✓ Google Calendar Connected';
+  }
+  if (localStorage.getItem('outlook_connected') === 'true' && msalInstance) {
+    const btn = document.getElementById('btn-connect-outlook-cal');
+    btn.classList.add('connected');
+    btn.textContent = '✓ Outlook Connected';
+    // Attempt silent token refresh
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length) {
+      outlookAccount = accounts[0];
+      msalInstance.setActiveAccount(outlookAccount);
+      fetchOutlookCalendarEvents().catch(() => { });
+    }
+  }
+}
+
+// Initialize MSAL on script load
+initMSAL();
 
 function renderCalendar() {
   document.getElementById('cal-title').textContent = `${MONTHS[calMonth]} ${calYear}`;
@@ -1396,7 +1616,7 @@ function renderCalendar() {
   const grid = document.getElementById('cal-days');
   grid.innerHTML = '';
 
-  const first  = new Date(calYear, calMonth, 1).getDay();
+  const first = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const prevDays = new Date(calYear, calMonth, 0).getDate();
   const totalCells = Math.ceil((first + daysInMonth) / 7) * 7;
@@ -1418,7 +1638,7 @@ function renderCalendar() {
     cell.innerHTML = `
       <div class="day-num">${d.getDate()}</div>
       <div class="day-evs">
-        ${dayEvents.slice(0, 3).map(e => `<div class="day-ev ${e.area || 'personal'}">${esc(e.title)}</div>`).join('')}
+        ${dayEvents.slice(0, 3).map(e => `<div class="day-ev ${e.source || e.area || 'personal'}">${esc(e.title)}</div>`).join('')}
         ${dayEvents.length > 3 ? `<div class="day-ev-more">+${dayEvents.length - 3} more</div>` : ''}
       </div>`;
     if (!outside) cell.addEventListener('click', () => openDayModal(key, d));
@@ -1435,7 +1655,15 @@ function getEventsForDate(dateStr) {
   const familyEvents = state.familyBlocks
     .filter(b => b.date === dateStr || b.recurring)
     .map(b => ({ title: b.title, area: 'family', type: 'family' }));
-  return [...taskEvents, ...familyEvents];
+  // From Google Calendar
+  const googleEvents = (state.googleCalendarEvents || [])
+    .filter(e => e.date === dateStr)
+    .map(e => ({ title: e.title, area: 'career', type: 'google', source: 'google', startTime: e.startTime, endTime: e.endTime }));
+  // From Outlook Calendar
+  const outlookEvents = (state.outlookCalendarEvents || [])
+    .filter(e => e.date === dateStr)
+    .map(e => ({ title: e.title, area: 'career', type: 'outlook', source: 'outlook', startTime: e.startTime, endTime: e.endTime }));
+  return [...taskEvents, ...familyEvents, ...googleEvents, ...outlookEvents];
 }
 
 function openDayModal(key, d) {
@@ -1445,10 +1673,10 @@ function openDayModal(key, d) {
     title: label,
     sub: 'Events and tasks for this day',
     fields: [
-      { name: 'title',    label: 'Add Event / Time Block', placeholder: 'e.g. Deep work: career project' },
-      { name: 'area',     label: 'Category', type: 'select', options: [['personal','Personal'],['family','Family'],['career','Career'],['health','Health'],['finance','Finance']] },
-      { name: 'startTime',label: 'Start Time', type: 'time', placeholder: '09:00' },
-      { name: 'endTime',  label: 'End Time',   type: 'time', placeholder: '10:00' }
+      { name: 'title', label: 'Add Event / Time Block', placeholder: 'e.g. Deep work: career project' },
+      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['health', 'Health'], ['finance', 'Finance']] },
+      { name: 'startTime', label: 'Start Time', type: 'time', placeholder: '09:00' },
+      { name: 'endTime', label: 'End Time', type: 'time', placeholder: '10:00' }
     ],
     submit: 'Add to Calendar',
     customBody: events.length ? `<div style="margin-bottom:16px">
@@ -1472,12 +1700,12 @@ function openAddEventModal() {
     title: 'Add Event / Time Block',
     sub: 'Block time on your calendar',
     fields: [
-      { name: 'title',    label: 'Event Title', placeholder: 'e.g. Doctor\'s appointment', required: true },
-      { name: 'date',     label: 'Date', type: 'date', required: true },
-      { name: 'startTime',label: 'Start Time', type: 'time' },
-      { name: 'endTime',  label: 'End Time',   type: 'time' },
-      { name: 'area',     label: 'Category', type: 'select', options: [['personal','Personal'],['family','Family'],['career','Career'],['health','Health'],['finance','Finance']] },
-      { name: 'recurring',label: 'Recurring Daily?', type: 'select', options: [['false','No'],['true','Yes — every day']] }
+      { name: 'title', label: 'Event Title', placeholder: 'e.g. Doctor\'s appointment', required: true },
+      { name: 'date', label: 'Date', type: 'date', required: true },
+      { name: 'startTime', label: 'Start Time', type: 'time' },
+      { name: 'endTime', label: 'End Time', type: 'time' },
+      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['health', 'Health'], ['finance', 'Finance']] },
+      { name: 'recurring', label: 'Recurring Daily?', type: 'select', options: [['false', 'No'], ['true', 'Yes — every day']] }
     ],
     submit: 'Add Event',
     onSubmit: async v => {
@@ -1508,22 +1736,22 @@ function renderGoals() {
         <div class="goal-card-title">${esc(g.title)}</div>
         <span class="goal-area-badge ${g.area}">${g.area || 'general'}</span>
       </div>
-      <div class="prog-track"><div class="prog-fill ${g.area}-fill" style="width:${g.progress||0}%"></div></div>
+      <div class="prog-track"><div class="prog-fill ${g.area}-fill" style="width:${g.progress || 0}%"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-top:4px">
-        <span>${g.progress||0}% complete</span>
+        <span>${g.progress || 0}% complete</span>
         ${g.deadline ? `<span>Due ${g.deadline}</span>` : ''}
       </div>
-      ${(g.milestones||[]).length ? `
+      ${(g.milestones || []).length ? `
       <div class="goal-milestones">
         ${g.milestones.map(m => `<div class="milestone-item">
-          <button class="milestone-check${m.done?' done':''}" onclick="toggleMilestone('${g.id}','${m.id}')">${m.done?'✓':''}</button>
-          <span style="${m.done?'text-decoration:line-through;color:var(--text-muted)':''}">${esc(m.text)}</span>
+          <button class="milestone-check${m.done ? ' done' : ''}" onclick="toggleMilestone('${g.id}','${m.id}')">${m.done ? '✓' : ''}</button>
+          <span style="${m.done ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${esc(m.text)}</span>
         </div>`).join('')}
       </div>` : ''}
       <div style="display:flex;gap:6px;margin-top:8px">
         <div class="stepper" style="gap:4px">
-          <button onclick="adjustGoalProgress('${g.id}',-10)" style="width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text)">−</button>
-          <button onclick="adjustGoalProgress('${g.id}',10)" style="width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text)">+</button>
+          <button onclick="adjustGoalProgress('${g.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">−</button>
+          <button onclick="adjustGoalProgress('${g.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">+</button>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="deleteGoal('${g.id}')">Delete</button>
       </div>
@@ -1535,12 +1763,12 @@ function openAddGoalModal() {
     title: 'New Goal',
     sub: 'A long-term outcome worth working towards',
     fields: [
-      { name: 'title',    label: 'Goal Title', placeholder: 'e.g. Get promoted to senior role', required: true },
-      { name: 'area',     label: 'Life Area', type: 'select', options: [['family','Family'],['career','Career'],['growth','Growth'],['health','Health'],['finance','Finance']] },
+      { name: 'title', label: 'Goal Title', placeholder: 'e.g. Get promoted to senior role', required: true },
+      { name: 'area', label: 'Life Area', type: 'select', options: [['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['health', 'Health'], ['finance', 'Finance']] },
       { name: 'deadline', label: 'Target Date', type: 'date' },
-      { name: 'm1',       label: 'Milestone 1', placeholder: 'e.g. Complete training course' },
-      { name: 'm2',       label: 'Milestone 2', placeholder: 'e.g. Take on leadership project' },
-      { name: 'm3',       label: 'Milestone 3', placeholder: 'e.g. Request performance review' }
+      { name: 'm1', label: 'Milestone 1', placeholder: 'e.g. Complete training course' },
+      { name: 'm2', label: 'Milestone 2', placeholder: 'e.g. Take on leadership project' },
+      { name: 'm3', label: 'Milestone 3', placeholder: 'e.g. Request performance review' }
     ],
     submit: 'Add Goal',
     onSubmit: async v => {
@@ -1683,7 +1911,7 @@ function openAddHabitModal() {
     sub: 'A daily practice that moves you forward',
     fields: [
       { name: 'name', label: 'Habit Name', placeholder: 'e.g. 30-min walk', required: true },
-      { name: 'area', label: 'Life Area', type: 'select', options: [['health','Health'],['family','Family'],['career','Career'],['growth','Growth'],['finance','Finance']] }
+      { name: 'area', label: 'Life Area', type: 'select', options: [['health', 'Health'], ['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['finance', 'Finance']] }
     ],
     submit: 'Add Habit',
     onSubmit: async v => {
@@ -1721,7 +1949,7 @@ function renderJournal() {
 
   const entry = state.journal[key] || {};
   document.getElementById('journal-morning').value = entry.morningFocus || '';
-  document.getElementById('journal-free').value    = entry.freeText || '';
+  document.getElementById('journal-free').value = entry.freeText || '';
   document.getElementById('journal-evening').value = entry.eveningWell || '';
 
   if (entry.morningMood) {
@@ -1739,8 +1967,8 @@ document.getElementById('journal-save-btn').addEventListener('click', async () =
   const updated = {
     ...existing,
     morningFocus: document.getElementById('journal-morning').value,
-    freeText:     document.getElementById('journal-free').value,
-    eveningWell:  document.getElementById('journal-evening').value,
+    freeText: document.getElementById('journal-free').value,
+    eveningWell: document.getElementById('journal-evening').value,
     updatedAt: Date.now()
   };
   state.journal[key] = updated;
@@ -1765,7 +1993,7 @@ function renderBabyCountdown() {
     document.getElementById('family-countdown-label').textContent = 'Set your baby\'s due date in settings';
     return;
   }
-  const due  = new Date(dueDate);
+  const due = new Date(dueDate);
   const diff = Math.ceil((due - new Date()) / 86400000);
   document.getElementById('family-countdown').textContent = diff > 0 ? `${diff} days` : 'Baby has arrived! 🎉';
   document.getElementById('family-countdown-label').textContent = diff > 0
@@ -1797,11 +2025,11 @@ document.getElementById('add-family-block-btn').addEventListener('click', () => 
     title: 'Add Protected Time',
     sub: 'Sacred family time that cannot be moved',
     fields: [
-      { name: 'title',     label: 'Block Title', placeholder: 'e.g. Family dinner', required: true },
-      { name: 'date',      label: 'Date', type: 'date' },
+      { name: 'title', label: 'Block Title', placeholder: 'e.g. Family dinner', required: true },
+      { name: 'date', label: 'Date', type: 'date' },
       { name: 'startTime', label: 'Start Time', type: 'time', placeholder: '18:00' },
-      { name: 'endTime',   label: 'End Time',   type: 'time', placeholder: '20:00' },
-      { name: 'recurring', label: 'Recurring Daily?', type: 'select', options: [['false','No'],['true','Yes']] }
+      { name: 'endTime', label: 'End Time', type: 'time', placeholder: '20:00' },
+      { name: 'recurring', label: 'Recurring Daily?', type: 'select', options: [['false', 'No'], ['true', 'Yes']] }
     ],
     submit: 'Protect This Time',
     onSubmit: async v => {
@@ -1848,8 +2076,8 @@ function renderFamilyScore() {
   const startOfWeek = new Date(); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   const weekBlocks = state.familyBlocks.filter(b => b.date >= dk(startOfWeek) && (b.area === 'family' || b.protected));
   const scored = weekBlocks.length;
-  const total  = 7; // target per week
-  const pct    = Math.min(100, Math.round((scored / total) * 100));
+  const total = 7; // target per week
+  const pct = Math.min(100, Math.round((scored / total) * 100));
 
   const r = 50, circ = 2 * Math.PI * r;
   const fill = circ * (pct / 100);
@@ -1873,13 +2101,13 @@ function renderFamilyScore() {
 // ═══════════════════════════════════════════════════════════════
 const AREA_COLORS = { family: '#FF6B6B', career: '#4ECDC4', growth: '#FFE66D', health: '#6BCB77', finance: '#4D96FF' };
 const AREA_EMOJIS = { family: '👨‍👩‍👧', career: '💼', growth: '🌱', health: '💪', finance: '💰' };
-const AREA_NAMES  = { family: 'Family', career: 'Career', growth: 'Personal Growth', health: 'Health & Energy', finance: 'Finance' };
+const AREA_NAMES = { family: 'Family', career: 'Career', growth: 'Personal Growth', health: 'Health & Energy', finance: 'Finance' };
 
 let areasChartInstance = null;
 
 function renderAreas() {
   const grid = document.getElementById('areas-grid');
-  const areas = ['family','career','growth','health','finance'];
+  const areas = ['family', 'career', 'growth', 'health', 'finance'];
 
   grid.innerHTML = areas.map(a => {
     const taskCount = state.tasks.filter(t => t.area === a).length;
@@ -1916,22 +2144,24 @@ function renderAreas() {
     options: {
       responsive: true,
       plugins: { legend: { display: false } },
-      scales: { r: {
-        beginAtZero: true, max: 100,
-        ticks: { display: false },
-        grid: { color: 'rgba(255,255,255,.08)' },
-        pointLabels: { color: 'rgba(255,255,255,.6)', font: { size: 12, family: 'Inter' } }
-      }}
+      scales: {
+        r: {
+          beginAtZero: true, max: 100,
+          ticks: { display: false },
+          grid: { color: 'rgba(255,255,255,.08)' },
+          pointLabels: { color: 'rgba(255,255,255,.6)', font: { size: 12, family: 'Inter' } }
+        }
+      }
     }
   });
 }
 
 function calcAreaScore(area) {
   const tasks = state.tasks.filter(t => t.area === area);
-  const done  = tasks.filter(t => t.done).length;
+  const done = tasks.filter(t => t.done).length;
   const habits = state.habits.filter(h => h.area === area);
   const habitScore = habits.length ? habits.reduce((sum, h) => sum + (calcStreak(h.checkIns || []) > 0 ? 1 : 0), 0) / habits.length * 50 : 0;
-  const taskScore  = tasks.length ? (done / tasks.length) * 50 : 0;
+  const taskScore = tasks.length ? (done / tasks.length) * 50 : 0;
   return Math.round(taskScore + habitScore);
 }
 
@@ -1950,12 +2180,12 @@ function renderTimeAudit() {
   const today = dk();
   const todayEntries = state.timeEntries.filter(e => e.date === today);
   const totalEstimated = todayEntries.reduce((s, e) => s + (e.estimatedMin || 0), 0);
-  const totalActual    = todayEntries.reduce((s, e) => s + (e.actualMin || 0), 0);
+  const totalActual = todayEntries.reduce((s, e) => s + (e.actualMin || 0), 0);
   const accuracy = totalEstimated > 0 ? Math.round((Math.min(totalActual, totalEstimated) / totalEstimated) * 100) : 0;
 
   document.getElementById('audit-estimated').textContent = totalEstimated > 0 ? formatMin(totalEstimated) : '—';
-  document.getElementById('audit-actual').textContent    = totalActual > 0    ? formatMin(totalActual)    : '—';
-  document.getElementById('audit-accuracy').textContent  = totalEstimated > 0 ? `${accuracy}%` : '—';
+  document.getElementById('audit-actual').textContent = totalActual > 0 ? formatMin(totalActual) : '—';
+  document.getElementById('audit-accuracy').textContent = totalEstimated > 0 ? `${accuracy}%` : '—';
 
   // Weekly chart
   const days = [], estData = [], actData = [];
@@ -1976,7 +2206,7 @@ function renderTimeAudit() {
       labels: days,
       datasets: [
         { label: 'Estimated (min)', data: estData, backgroundColor: 'rgba(108,99,255,.4)', borderColor: '#6C63FF', borderWidth: 1, borderRadius: 4 },
-        { label: 'Actual (min)',    data: actData, backgroundColor: 'rgba(107,203,119,.4)', borderColor: '#6BCB77', borderWidth: 1, borderRadius: 4 }
+        { label: 'Actual (min)', data: actData, backgroundColor: 'rgba(107,203,119,.4)', borderColor: '#6BCB77', borderWidth: 1, borderRadius: 4 }
       ]
     },
     options: {
@@ -2008,12 +2238,12 @@ function renderWins() {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">🏆</div><p>No wins yet</p><small>Complete tasks and habits to log wins automatically</small></div>`;
     return;
   }
-  const trophies = ['🏆','🥇','🎯','✅','⭐','💪','🚀'];
+  const trophies = ['🏆', '🥇', '🎯', '✅', '⭐', '💪', '🚀'];
   el.innerHTML = wins.map((w, i) => `
     <div class="win-item">
       <div class="win-emoji">${trophies[i % trophies.length]}</div>
       <div class="win-text">${esc(w.text)}</div>
-      <div class="win-time">${new Date(w.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · ${w.date}</div>
+      <div class="win-time">${new Date(w.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${w.date}</div>
     </div>`).join('');
 }
 
@@ -2054,11 +2284,11 @@ function buildField(f) {
   const id = `mf-${f.name}`;
   let input = '';
   if (f.type === 'textarea') {
-    input = `<textarea id="${id}" placeholder="${esc(f.placeholder||'')}">${esc(f.value||'')}</textarea>`;
+    input = `<textarea id="${id}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
   } else if (f.type === 'select') {
-    input = `<select id="${id}">${(f.options||[]).map(([v,l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select>`;
+    input = `<select id="${id}">${(f.options || []).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select>`;
   } else {
-    input = `<input type="${f.type||'text'}" id="${id}" placeholder="${esc(f.placeholder||'')}" value="${esc(f.value||'')}" ${f.required?'required':''}>`;
+    input = `<input type="${f.type || 'text'}" id="${id}" placeholder="${esc(f.placeholder || '')}" value="${esc(f.value || '')}" ${f.required ? 'required' : ''}>`;
   }
   return `<div class="modal-field"><label for="${id}">${esc(f.label)}</label>${input}</div>`;
 }
@@ -2087,7 +2317,7 @@ function startHourlyNudge() {
 function hourlyNudge() {
   const hour = new Date().getHours();
   if (hour >= 7 && hour <= 22) {
-    toast(`⏰ Hour check-in — it's ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}. How's your focus?`, 'info', 5000);
+    toast(`⏰ Hour check-in — it's ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. How's your focus?`, 'info', 5000);
     // Vibrate if supported
     if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
   }
