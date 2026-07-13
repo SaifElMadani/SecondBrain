@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Space</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- LOAD FIREBASE COMPAT SDKs (V8) FOR FILE:// CORS COMPATIBILITY -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+<body>
+
+<!-- LOGIN CONTAINER VIEW (FULLSCREEN OVERLAY) -->
+<div class="view-login-container" id="view-login">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo-dot"></div>
+      <div class="login-title" id="login-title-text">Welcome to My Space</div>
+      <div class="login-subtitle" id="login-subtitle-text">Sign in to access your personal dashboard</div>
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <form class="login-form" id="login-form">
+      <div class="login-field">
+        <label for="login-email">Email Address</label>
+        <input type="email" id="login-email" required placeholder="e.g. name@example.com">
+      </div>
+      <div class="login-field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required placeholder="••••••••" minlength="6">
+      </div>
+      <button type="submit" class="login-btn" id="login-submit-btn">
+        <span class="spinner" id="login-spinner"></span>
+        <span id="login-btn-text">Sign In</span>
+      </button>
+    </form>
+    <div class="login-toggle" id="login-toggle-container">
+      Don't have an account?<span id="login-toggle-btn">Sign Up</span>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- MOBILE SIDEBAR OVERLAY BACKDROP -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- SIDEBAR (DRAWER ON MOBILE) -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-dot"></div>
+      <span>My Space</span>
+    </div>
+
+    <span class="nav-section-label">Workspace</span>
+    <button class="nav-item active" data-view="overview">
+      <span class="nav-icon">◈</span> Overview
+    </button>
+    <button class="nav-item" data-view="objectives">
+      <span class="nav-icon">◎</span> Objectives
+    </button>
+    <button class="nav-item" data-view="fields">
+      <span class="nav-icon">◇</span> Interests
+    </button>
+
+    <span class="nav-section-label">Daily</span>
+    <button class="nav-item" data-view="todos">
+      <span class="nav-icon">☐</span> To-do
+    </button>
+    <button class="nav-item" data-view="calendar">
+      <span class="nav-icon">◫</span> Calendar
+    </button>
+
+    <!-- SIDEBAR FOOTER (LOGOUT & DATE) -->
+    <div class="sidebar-footer">
+      <button class="logout-btn" id="logout-btn" style="display: none;">
+        <span class="nav-icon">⎋</span> Log out
+      </button>
+      <div class="sidebar-date" id="sidebarDate"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <div class="main">
+
+    <!-- TOPBAR WITH HAMBURGER TOGGLE -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Open menu">☰</button>
+        <div>
+          <div class="topbar-title" id="topbarTitle">Overview</div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div id="topbarAction"></div>
+    </div>
+
+    <!-- MAIN SCROLLABLE VIEW CONTENT -->
+    <div class="content">
+
+      <!-- OVERVIEW VIEW -->
+      <div class="view active" id="view-overview">
+        <div class="overview-grid">
+
+          <div class="card card-half">
+            <div class="card-label">Day of year</div>
+            <div class="card-big-num" id="ov-doy">—</div>
+            <div class="card-big-sub" id="ov-doy-sub">—</div>
+          </div>
+
+          <div class="card card-half">
+            <div class="card-label">Open to-dos</div>
+            <div class="card-big-num" id="ov-todos">0</div>
+            <div class="card-big-sub">tasks pending today</div>
+          </div>
+
+          <div class="card card-half">
+            <div class="card-label">Interests tracked</div>
+            <div class="card-big-num" id="ov-fields">0</div>
+            <div class="card-big-sub">fields of interest</div>
+          </div>
+
+          <div class="card" style="grid-column:span 2">
+            <div class="card-label">Objectives — progress</div>
+            <div id="ov-objectives">
+              <div class="empty" style="padding:20px 0">
+                <div class="empty-icon">◎</div>No objectives yet
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Coming up</div>
+            <div id="ov-upcoming">
+              <div class="empty" style="padding:20px 0">
+                <div class="empty-icon">◫</div>Nothing upcoming
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Today's tasks</div>
+            <div id="ov-tasks">
+              <div class="empty" style="padding:20px 0">
+                <div class="empty-icon">☐</div>Nothing for today
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="grid-column:span 2">
+            <div class="card-label">Interests</div>
+            <div class="chip-wrap" id="ov-chips"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- OBJECTIVES VIEW -->
+      <div class="view" id="view-objectives">
+        <div class="obj-list" id="obj-list"></div>
+      </div>
+
+      <!-- INTERESTS VIEW -->
+      <div class="view" id="view-fields">
+        <div class="fields-grid" id="fields-grid"></div>
+      </div>
+
+      <!-- TO-DO VIEW -->
+      <div class="view" id="view-todos">
+        <div class="entry-add-row">
+          <input type="text" id="todo-input" placeholder="Add a task…">
+          <select id="todo-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+          <button class="btn" id="todo-add-btn">Add</button>
+        </div>
+        <div class="filter-row">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="open">Open</button>
+          <button class="filter-btn" data-filter="done">Done</button>
+        </div>
+        <ul class="entries-list" id="todo-list"></ul>
+      </div>
+
+      <!-- CALENDAR VIEW -->
+      <div class="view" id="view-calendar">
+        <div class="cal-header">
+          <h2 id="cal-title"></h2>
+          <button class="cal-nav-btn" id="cal-prev">←</button>
+          <button class="cal-today-btn" id="cal-today-btn">Today</button>
+          <button class="cal-nav-btn" id="cal-next">→</button>
+        </div>
+        <div class="cal-grid-wrap">
+          <div class="cal-weekdays" id="cal-weekdays"></div>
+          <div class="cal-days" id="cal-days"></div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODAL CONTAINER -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal" id="modal"></div>
+</div>
+
+<!-- LOAD REGULAR DEFERRED SCRIPT -->
+<script src="app.js" defer></script>
+</body>
+</html>
