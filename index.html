@@ -1,216 +1,814 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Space</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Second Brain — Your Personal OS</title>
+  <meta name="description"
+    content="A personal second brain for focus, time awareness, goals, habits, and everything that matters." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  
-  <!-- LOAD FIREBASE COMPAT SDKs (V8) FOR FILE:// CORS COMPATIBILITY -->
+
+  <!-- Firebase SDKs (v8 compat) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
+
 <body>
 
-<!-- LOGIN CONTAINER VIEW (FULLSCREEN OVERLAY) -->
-<div class="view-login-container" id="view-login">
-  <div class="login-card">
-    <div class="login-header">
-      <div class="login-logo-dot"></div>
-      <div class="login-title" id="login-title-text">Welcome to My Space</div>
-      <div class="login-subtitle" id="login-subtitle-text">Sign in to access your personal dashboard</div>
-    </div>
-    <div class="login-error" id="login-error"></div>
-    <form class="login-form" id="login-form">
-      <div class="login-field">
-        <label for="login-email">Email Address</label>
-        <input type="email" id="login-email" required placeholder="e.g. name@example.com">
+  <!-- ═══════════════════════════════════════════════════════════
+     TOAST CONTAINER
+═══════════════════════════════════════════════════════════════ -->
+  <div id="toast-container"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-login">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">🧠</div>
+        <div class="auth-logo-text">Second<span>Brain</span></div>
       </div>
-      <div class="login-field">
-        <label for="login-password">Password</label>
-        <input type="password" id="login-password" required placeholder="••••••••" minlength="6">
+      <div class="auth-title" id="auth-title">Welcome back</div>
+      <div class="auth-sub" id="auth-sub">Sign in to your personal OS</div>
+
+      <div class="auth-error" id="auth-error"></div>
+
+      <!-- OAuth buttons -->
+      <div class="oauth-row">
+        <button class="oauth-btn" id="btn-google-signin">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path fill="#FFC107"
+              d="M43.6 20.1H42V20H24v8h11.3A12 12 0 0 1 12 24a12 12 0 0 1 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7A20 20 0 0 0 4 24a20 20 0 0 0 20 20 20 20 0 0 0 20-20c0-1.3-.1-2.7-.4-3.9Z" />
+            <path fill="#FF3D00"
+              d="M6.3 14.7l6.6 4.8A12 12 0 0 1 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7A20 20 0 0 0 6.3 14.7Z" />
+            <path fill="#4CAF50"
+              d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2A12 12 0 0 1 12.3 27L5.6 31.9A20 20 0 0 0 24 44Z" />
+            <path fill="#1976D2"
+              d="M43.6 20.1H42V20H24v8h11.3a12 12 0 0 1-4.1 5.6l6.2 5.2C37 39 44 34 44 24c0-1.3-.1-2.7-.4-3.9Z" />
+          </svg>
+          Continue with Google
+        </button>
+        <button class="oauth-btn" id="btn-microsoft-signin">
+          <svg viewBox="0 0 21 21" fill="none">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+          </svg>
+          Continue with Microsoft
+        </button>
       </div>
-      <button type="submit" class="login-btn" id="login-submit-btn">
-        <span class="spinner" id="login-spinner"></span>
-        <span id="login-btn-text">Sign In</span>
-      </button>
-    </form>
-    <div class="login-toggle" id="login-toggle-container">
-      Don't have an account?<span id="login-toggle-btn">Sign Up</span>
+
+      <div class="auth-divider">or use email</div>
+
+      <form id="auth-form">
+        <div class="auth-field">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email" required>
+        </div>
+        <div class="auth-field">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" minlength="6"
+            required>
+        </div>
+        <button type="submit" class="auth-submit" id="auth-submit-btn">
+          <span class="spinner" id="auth-spinner"></span>
+          <span id="auth-btn-label">Sign In</span>
+        </button>
+      </form>
+
+      <div class="auth-toggle">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <span id="auth-toggle-btn"> Sign up</span>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="app">
-  <!-- MOBILE SIDEBAR OVERLAY BACKDROP -->
-  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <!-- ═══════════════════════════════════════════════════════════
+     ONBOARDING WIZARD (3 steps)
+═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-onboarding">
+    <div class="onboard-card">
+      <div class="onboard-step-dots">
+        <div class="onboard-dot active" id="ob-dot-0"></div>
+        <div class="onboard-dot" id="ob-dot-1"></div>
+        <div class="onboard-dot" id="ob-dot-2"></div>
+      </div>
 
-  <!-- SIDEBAR (DRAWER ON MOBILE) -->
-  <aside class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-dot"></div>
-      <span>My Space</span>
+      <!-- Step 0: Welcome -->
+      <div id="ob-step-0">
+        <div class="onboard-icon">🧠</div>
+        <div class="onboard-title">Welcome to your Second Brain</div>
+        <div class="onboard-sub">Let's set up your personal OS in under 2 minutes. No overwhelm — just three quick
+          questions.</div>
+        <div class="modal-field">
+          <label for="ob-name">What should we call you?</label>
+          <input type="text" id="ob-name" placeholder="Your first name" autocomplete="given-name">
+        </div>
+        <div class="onboard-nav">
+          <button class="btn-onboard-next" id="ob-next-0">Let's go →</button>
+        </div>
+      </div>
+
+      <!-- Step 1: Life Areas -->
+      <div id="ob-step-1" style="display:none">
+        <div class="onboard-icon">🗺️</div>
+        <div class="onboard-title">Your life areas</div>
+        <div class="onboard-sub">Everything you do maps to one of these. They're already set up for you — personalise
+          any time.</div>
+        <div class="onboard-areas">
+          <div class="area-chip selected" data-area="family"><span class="area-emoji">👨‍👩‍👧</span>Family</div>
+          <div class="area-chip selected" data-area="career"><span class="area-emoji">💼</span>Career</div>
+          <div class="area-chip selected" data-area="growth"><span class="area-emoji">🌱</span>Personal Growth</div>
+          <div class="area-chip selected" data-area="health"><span class="area-emoji">💪</span>Health & Energy</div>
+          <div class="area-chip selected" data-area="finance"><span class="area-emoji">💰</span>Finance</div>
+        </div>
+        <div class="onboard-nav">
+          <button class="btn-onboard-back" id="ob-back-1">← Back</button>
+          <button class="btn-onboard-next" id="ob-next-1">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: First Sprint Goal -->
+      <div id="ob-step-2" style="display:none">
+        <div class="onboard-icon">🎯</div>
+        <div class="onboard-title">Your 3-month priority</div>
+        <div class="onboard-sub">What's the one outcome that, if you achieved it this quarter, would make everything
+          else easier?</div>
+        <div class="modal-field">
+          <label for="ob-sprint-goal">Your Q3 2026 main goal</label>
+          <input type="text" id="ob-sprint-goal" placeholder="e.g. Prepare for baby's arrival"
+            value="Prepare for baby's arrival">
+        </div>
+        <div class="modal-field">
+          <label for="ob-due-date">Baby due date (optional)</label>
+          <input type="date" id="ob-due-date">
+        </div>
+        <div class="onboard-nav">
+          <button class="btn-onboard-back" id="ob-back-2">← Back</button>
+          <button class="btn-onboard-next" id="ob-finish">Finish setup 🚀</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     MORNING / EVENING RITUAL
+═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-ritual">
+    <div class="ritual-card">
+      <div class="ritual-header">
+        <div class="ritual-time-badge" id="ritual-badge">☀️ Morning Check-in</div>
+        <div class="ritual-progress" id="ritual-progress">
+          <div class="ritual-progress-bar" id="rp-0"></div>
+          <div class="ritual-progress-bar" id="rp-1"></div>
+          <div class="ritual-progress-bar" id="rp-2"></div>
+        </div>
+        <div class="ritual-q-num" id="ritual-q-num">Question 1 of 3</div>
+        <div class="ritual-q-text" id="ritual-q-text"></div>
+      </div>
+
+      <!-- Mood picker (shown on q1 morning / q2 evening) -->
+      <div id="ritual-mood-area" style="display:none">
+        <div class="mood-row" id="ritual-mood-row">
+          <button class="mood-btn" data-mood="😔" title="Low">😔</button>
+          <button class="mood-btn" data-mood="😐" title="Okay">😐</button>
+          <button class="mood-btn" data-mood="🙂" title="Good">🙂</button>
+          <button class="mood-btn" data-mood="😄" title="Great">😄</button>
+          <button class="mood-btn" data-mood="🤩" title="Excellent">🤩</button>
+        </div>
+        <div class="slider-wrap">
+          <div class="slider-label"><span>Energy Level</span><strong id="energy-val">5</strong></div>
+          <input type="range" min="1" max="10" value="5" id="ritual-energy">
+        </div>
+      </div>
+
+      <!-- Text answer area -->
+      <div id="ritual-text-area" style="display:none">
+        <textarea id="ritual-answer" placeholder="Type your answer…" style="min-height:100px; width:100%;"></textarea>
+      </div>
+
+      <div class="ritual-nav">
+        <button class="btn-ritual-skip" id="ritual-skip">Skip ritual</button>
+        <button class="btn-ritual-next" id="ritual-next">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     PAUSE SCREEN (mandatory 60s after task completion)
+═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-pause">
+    <div class="pause-ring-wrap">
+      <svg width="180" height="180" viewBox="0 0 180 180" id="pause-svg">
+        <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(108,99,255,.1)" stroke-width="10" />
+        <circle cx="90" cy="90" r="80" fill="none" stroke="url(#pauseGrad)" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="502.65" stroke-dashoffset="0" transform="rotate(-90 90 90)" id="pause-ring-circle" />
+        <defs>
+          <linearGradient id="pauseGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#6C63FF" />
+            <stop offset="100%" stop-color="#A78BFA" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="pause-ring-text">
+        <div class="pause-ring-num" id="pause-countdown">60</div>
+        <div class="pause-ring-label">seconds</div>
+      </div>
     </div>
 
-    <span class="nav-section-label">Workspace</span>
-    <button class="nav-item active" data-view="overview">
-      <span class="nav-icon">◈</span> Overview
-    </button>
-    <button class="nav-item" data-view="objectives">
-      <span class="nav-icon">◎</span> Objectives
-    </button>
-    <button class="nav-item" data-view="fields">
-      <span class="nav-icon">◇</span> Interests
-    </button>
+    <div class="pause-breath"></div>
+    <div class="pause-title" id="pause-title">You finished something. 🎉</div>
+    <div class="pause-sub">Take 60 seconds to breathe. The next task will wait.<br>Notice how completion feels.</div>
+    <button class="pause-skip-btn" id="pause-skip-btn">Continue to next task</button>
 
-    <span class="nav-section-label">Daily</span>
-    <button class="nav-item" data-view="todos">
-      <span class="nav-icon">☐</span> To-do
-    </button>
-    <button class="nav-item" data-view="calendar">
-      <span class="nav-icon">◫</span> Calendar
-    </button>
+    <!-- Quick win logging -->
+    <div style="text-align:center; margin-top: 8px;">
+      <input type="text" id="pause-win-input" placeholder="What did you just accomplish? (optional)"
+        style="max-width:360px; text-align:center; background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.1);">
+    </div>
+  </div>
 
-    <!-- SIDEBAR FOOTER (LOGOUT & DATE) -->
-    <div class="sidebar-footer">
-      <button class="logout-btn" id="logout-btn" style="display: none;">
-        <span class="nav-icon">⎋</span> Log out
+  <!-- ═══════════════════════════════════════════════════════════
+     ACTIVE TASK TIMER OVERLAY
+═══════════════════════════════════════════════════════════════ -->
+  <div id="overlay-timer">
+    <div class="timer-task-name" id="timer-task-name">Working on task…</div>
+    <div class="timer-display" id="timer-display">25:00</div>
+    <div class="timer-bar-wrap">
+      <div class="timer-bar-fill" id="timer-bar-fill"></div>
+    </div>
+    <div class="timer-actions">
+      <button class="timer-stop-btn" id="timer-done-btn">✓ Mark Complete</button>
+      <button class="timer-cancel-btn" id="timer-cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     QUICK CAPTURE OVERLAY
+═══════════════════════════════════════════════════════════════ -->
+  <div id="overlay-capture">
+    <div class="capture-sheet">
+      <div class="capture-header">
+        <div class="capture-title">⚡ Quick Capture</div>
+        <button class="capture-close" id="capture-close">✕</button>
+      </div>
+      <textarea class="capture-textarea" id="capture-input"
+        placeholder="What's on your mind? Dump it here — sort it later."></textarea>
+      <div class="capture-types">
+        <button class="capture-type-btn active" data-type="note">📝 Note</button>
+        <button class="capture-type-btn" data-type="task">☑ Task</button>
+        <button class="capture-type-btn" data-type="idea">💡 Idea</button>
+        <button class="capture-type-btn" data-type="journal">✍️ Journal</button>
+      </div>
+      <div class="capture-actions">
+        <button class="voice-btn" id="voice-btn" title="Voice input">🎙️</button>
+        <button class="btn btn-ghost" style="flex:1" id="capture-save-btn">Save to Inbox</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     GENERIC MODAL
+═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box" id="modal-box"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════════ -->
+  <div id="app" class="hidden">
+
+    <!-- SIDEBAR OVERLAY (mobile) -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-mark">🧠</div>
+        <div class="sidebar-logo-name">Second<span>Brain</span></div>
+      </div>
+
+      <span class="sidebar-section-label">Main</span>
+      <button class="nav-btn active" data-view="dashboard" id="nav-dashboard">
+        <span class="nav-icon">🏠</span> Dashboard
       </button>
-      <div class="sidebar-date" id="sidebarDate"></div>
-    </div>
-  </aside>
+      <button class="nav-btn" data-view="inbox" id="nav-inbox">
+        <span class="nav-icon">📥</span> Inbox
+        <span class="nav-badge" id="inbox-badge" style="display:none">0</span>
+      </button>
 
-  <!-- MAIN CONTENT CONTAINER -->
-  <div class="main">
+      <span class="sidebar-section-label">Focus</span>
+      <button class="nav-btn" data-view="tasks" id="nav-tasks">
+        <span class="nav-icon">☑️</span> Tasks
+      </button>
+      <button class="nav-btn" data-view="sprint" id="nav-sprint">
+        <span class="nav-icon">🚀</span> 3-Month Sprint
+      </button>
 
-    <!-- TOPBAR WITH HAMBURGER TOGGLE -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <button class="menu-toggle" id="menu-toggle" aria-label="Open menu">☰</button>
-        <div>
-          <div class="topbar-title" id="topbarTitle">Overview</div>
-          <div class="topbar-sub" id="topbarSub"></div>
+      <span class="sidebar-section-label">Knowledge</span>
+      <button class="nav-btn" data-view="notes" id="nav-notes">
+        <span class="nav-icon">📝</span> Notes
+      </button>
+      <button class="nav-btn" data-view="documents" id="nav-documents">
+        <span class="nav-icon">📁</span> Documents
+      </button>
+
+      <span class="sidebar-section-label">Life</span>
+      <button class="nav-btn" data-view="calendar" id="nav-calendar">
+        <span class="nav-icon">📅</span> Calendar
+      </button>
+      <button class="nav-btn" data-view="goals" id="nav-goals">
+        <span class="nav-icon">🎯</span> Goals & Habits
+      </button>
+      <button class="nav-btn" data-view="journal" id="nav-journal">
+        <span class="nav-icon">✍️</span> Journal
+      </button>
+      <button class="nav-btn" data-view="family" id="nav-family">
+        <span class="nav-icon">👨‍👩‍👧</span> Family Mode
+      </button>
+      <button class="nav-btn" data-view="areas" id="nav-areas">
+        <span class="nav-icon">🗺️</span> Life Areas
+      </button>
+      <button class="nav-btn" data-view="timeaudit" id="nav-timeaudit">
+        <span class="nav-icon">⏱️</span> Time Audit
+      </button>
+      <button class="nav-btn" data-view="wins" id="nav-wins">
+        <span class="nav-icon">🏆</span> Wins Log
+      </button>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user" id="sidebar-user">
+          <div class="sidebar-avatar" id="sidebar-avatar">S</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" id="sidebar-username">Loading…</div>
+            <div class="sidebar-user-email" id="sidebar-useremail"></div>
+          </div>
         </div>
+        <button class="logout-btn" id="logout-btn">⎋ Sign out</button>
       </div>
-      <div id="topbarAction"></div>
-    </div>
+    </aside>
 
-    <!-- MAIN SCROLLABLE VIEW CONTENT -->
-    <div class="content">
+    <!-- MAIN -->
+    <div class="main">
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" id="menu-toggle" aria-label="Open menu">☰</button>
+          <div>
+            <div class="topbar-title" id="topbar-title">Dashboard</div>
+            <div class="topbar-sub" id="topbar-sub"></div>
+          </div>
+        </div>
+        <div class="topbar-right" id="topbar-actions"></div>
+      </div>
 
-      <!-- OVERVIEW VIEW -->
-      <div class="view active" id="view-overview">
-        <div class="overview-grid">
+      <!-- CONTENT -->
+      <div class="content">
 
-          <div class="card card-half">
-            <div class="card-label">Day of year</div>
-            <div class="card-big-num" id="ov-doy">—</div>
-            <div class="card-big-sub" id="ov-doy-sub">—</div>
+        <!-- ─── DASHBOARD ─────────────────────────────────────── -->
+        <div class="view active" id="view-dashboard">
+          <div class="dashboard-grid">
+
+            <!-- Greeting -->
+            <div class="greeting-card">
+              <div class="greeting-date" id="greeting-date"></div>
+              <div class="greeting-text" id="greeting-text">Good morning ☀️</div>
+              <div class="greeting-focus" id="greeting-focus">
+                <span class="focus-label">TODAY'S FOCUS</span>
+                <strong id="today-focus">Set your sprint goal to see today's focus</strong>
+              </div>
+            </div>
+
+            <!-- Habit rings -->
+            <div class="card habit-rings-card">
+              <div class="card-label">Today's Habits</div>
+              <div class="habit-rings-row" id="dash-habit-rings">
+                <div class="empty-state" style="padding:10px 0; align-items:flex-start">
+                  <p style="font-size:12px">No habits yet. Add habits in Goals & Habits.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Time awareness ring -->
+            <div class="card time-ring-card">
+              <div class="card-label">Day Progress</div>
+              <div class="time-ring-wrap" id="time-ring-wrap">
+                <!-- Rendered by JS -->
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:22px; font-weight:800; color: var(--accent-light)" id="time-ring-pct">—%</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px" id="time-ring-label">of day elapsed
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats row -->
+            <div class="stats-row">
+              <div class="card stat-card">
+                <div class="stat-num green" id="stat-tasks-done">0</div>
+                <div class="stat-label">Tasks done today</div>
+              </div>
+              <div class="card stat-card">
+                <div class="stat-num accent" id="stat-streak">0</div>
+                <div class="stat-label">Habit streak 🔥</div>
+              </div>
+              <div class="card stat-card">
+                <div class="stat-num yellow" id="stat-week-tasks">0</div>
+                <div class="stat-label">Tasks this week</div>
+              </div>
+            </div>
+
+            <!-- Family protected time -->
+            <div class="card family-card">
+              <div class="card-label" style="display:flex;align-items:center;gap:8px">
+                <span>👨‍👩‍👧 Protected Family Time Today</span>
+                <span class="protected-badge">SACRED</span>
+              </div>
+              <div class="family-blocks" id="dash-family-blocks">
+                <div style="font-size:13px; color:var(--text-muted); padding:8px 0">No protected blocks today. Add them
+                  in Family Mode.</div>
+              </div>
+            </div>
+
+            <!-- Mood & energy from morning ritual -->
+            <div class="card">
+              <div class="card-label">Morning Check-in</div>
+              <div id="dash-ritual-summary"
+                style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:4px 0">
+                <div style="font-size:13px; color:var(--text-muted)">Complete your morning ritual to see your mood here.
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent captures -->
+            <div class="card">
+              <div class="section-header" style="margin-bottom:10px">
+                <div class="section-title">Recent Captures</div>
+                <button class="btn btn-ghost btn-sm" onclick="goTo('inbox')">View Inbox</button>
+              </div>
+              <div class="captures-list" id="dash-captures">
+                <div style="font-size:13px; color:var(--text-muted); padding:8px 0">Nothing captured yet. Tap the ⚡
+                  button!</div>
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /dashboard -->
+
+        <!-- ─── INBOX ───────────────────────────────────────── -->
+        <div class="view" id="view-inbox">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Inbox</div>
+              <div class="section-sub">Process your captures — turn them into tasks, notes, or goals</div>
+            </div>
+          </div>
+          <div id="inbox-list"></div>
+        </div>
+
+        <!-- ─── TASKS ──────────────────────────────────────── -->
+        <div class="view" id="view-tasks">
+          <div class="tasks-toolbar">
+            <input type="text" id="task-search" placeholder="Search tasks…">
+            <div class="view-tabs">
+              <button class="view-tab active" data-tab="today" id="tasks-tab-today">Today</button>
+              <button class="view-tab" data-tab="upcoming" id="tasks-tab-upcoming">Upcoming</button>
+              <button class="view-tab" data-tab="all" id="tasks-tab-all">All</button>
+            </div>
+            <button class="btn" id="add-task-btn">+ New Task</button>
+          </div>
+          <div class="area-filter-row" id="tasks-area-filter">
+            <button class="area-filter-btn active" data-area="all">All Areas</button>
+            <button class="area-filter-btn family" data-area="family">👨‍👩‍👧 Family</button>
+            <button class="area-filter-btn career" data-area="career">💼 Career</button>
+            <button class="area-filter-btn growth" data-area="growth">🌱 Growth</button>
+            <button class="area-filter-btn health" data-area="health">💪 Health</button>
+            <button class="area-filter-btn finance" data-area="finance">💰 Finance</button>
+          </div>
+          <div class="task-list" id="task-list"></div>
+        </div>
+
+        <!-- ─── SPRINT ─────────────────────────────────────── -->
+        <div class="view" id="view-sprint">
+          <div class="sprint-header" id="sprint-header">
+            <div class="sprint-quarter" id="sprint-quarter">Q3 2026 Sprint</div>
+            <div class="sprint-title" id="sprint-main-title">Your 3-Month Focus</div>
+            <div class="sprint-progress-wrap">
+              <div class="sprint-progress-meta">
+                <span>Quarter progress</span>
+                <span id="sprint-q-pct">0%</span>
+              </div>
+              <div class="prog-track">
+                <div class="prog-fill" id="sprint-q-fill" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="section-header">
+            <div class="section-title">Objectives</div>
+            <button class="btn" id="add-sprint-obj-btn">+ Add Objective</button>
+          </div>
+          <div class="sprint-objectives" id="sprint-objectives-list"></div>
+        </div>
+
+        <!-- ─── NOTES ──────────────────────────────────────── -->
+        <div class="view" id="view-notes">
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:18px">
+            <input type="text" id="note-search" placeholder="Search notes…" style="flex:1">
+            <button class="btn" id="add-note-btn">+ New Note</button>
+          </div>
+          <div class="notes-layout" id="notes-layout">
+            <div class="notes-sidebar" id="notes-sidebar">
+              <!-- Note list rendered by JS -->
+            </div>
+            <div class="notes-editor-area" id="notes-editor-area">
+              <div class="empty-state" id="notes-empty-msg" style="height:300px">
+                <div class="empty-icon">📝</div>
+                <p>Select a note or create a new one</p>
+                <small>Your knowledge base starts here</small>
+              </div>
+              <div id="notes-editor-wrap" style="display:none; flex-direction:column; height:100%">
+                <div class="editor-toolbar">
+                  <button class="editor-toolbar-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+                  <button class="editor-toolbar-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+                  <button class="editor-toolbar-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+                  <div class="editor-toolbar-sep"></div>
+                  <button class="editor-toolbar-btn" data-cmd="insertUnorderedList" title="Bullet List">• ≡</button>
+                  <button class="editor-toolbar-btn" data-cmd="insertOrderedList" title="Numbered List">1. ≡</button>
+                  <div class="editor-toolbar-sep"></div>
+                  <button class="editor-toolbar-btn" data-cmd="formatBlock" data-val="h2" title="Heading 2">H2</button>
+                  <button class="editor-toolbar-btn" data-cmd="formatBlock" data-val="h3" title="Heading 3">H3</button>
+                  <button class="editor-toolbar-btn" data-cmd="formatBlock" data-val="blockquote"
+                    title="Quote">"</button>
+                  <div class="editor-toolbar-sep"></div>
+                  <button class="editor-toolbar-btn" id="note-save-btn" title="Save"
+                    style="background:var(--accent-dim); color:var(--accent-light);">💾 Save</button>
+                  <button class="editor-toolbar-btn" id="note-delete-btn" title="Delete"
+                    style="margin-left:auto; color:var(--danger);">🗑️</button>
+                </div>
+                <input class="note-title-input" id="note-title-input" placeholder="Note title…">
+                <div class="chip-wrap" id="note-tags-wrap" style="padding:0 24px 10px; gap:6px">
+                  <span class="chip" style="cursor:pointer; border-style:dashed" id="note-add-tag-btn">+ tag</span>
+                </div>
+                <div class="editor-content" id="note-editor" contenteditable="true"
+                  data-placeholder="Start writing… your thoughts belong here."></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── DOCUMENTS ──────────────────────────────────── -->
+        <div class="view" id="view-documents">
+          <div class="doc-upload-zone" id="doc-upload-zone">
+            <div class="upload-icon">📤</div>
+            <h3>Drop files here or click to upload</h3>
+            <p>PDF, images, Word docs — anything up to 20MB</p>
+            <input type="file" id="doc-file-input" style="display:none" multiple accept="*/*">
+          </div>
+          <div class="section-header">
+            <div class="section-title">Documents</div>
+            <input type="text" id="doc-search" placeholder="Search by name…" style="max-width:240px">
+          </div>
+          <div class="doc-grid" id="doc-grid">
+            <div class="empty-state" style="grid-column:1/-1">
+              <div class="empty-icon">📁</div>
+              <p>No documents yet</p>
+              <small>Upload files to store them securely in the cloud</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── CALENDAR ───────────────────────────────────── -->
+        <div class="view" id="view-calendar">
+          <div class="calendar-toolbar">
+            <h2 class="cal-title" id="cal-title">July 2026</h2>
+            <button class="cal-nav-btn" id="cal-prev">←</button>
+            <button class="cal-today-btn" id="cal-today">Today</button>
+            <button class="cal-nav-btn" id="cal-next">→</button>
+            <button class="btn btn-sm" id="add-event-btn">+ Event</button>
+          </div>
+          <div class="cal-connect-bar">
+            <button class="cal-connect-btn" id="btn-connect-google-cal">
+              <svg width="14" height="14" viewBox="0 0 48 48">
+                <path fill="#4285F4" d="M24 4L4 16l20 28 20-28z" opacity=".5" />
+                <circle fill="#4285F4" cx="24" cy="24" r="8" />
+              </svg>
+              Connect Google Calendar
+            </button>
+            <button class="cal-connect-btn" id="btn-connect-outlook-cal">
+              <svg width="14" height="14" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#0078d4" />
+                <rect x="11" y="1" width="9" height="9" fill="#0078d4" opacity=".6" />
+                <rect x="1" y="11" width="9" height="9" fill="#0078d4" opacity=".6" />
+                <rect x="11" y="11" width="9" height="9" fill="#0078d4" opacity=".3" />
+              </svg>
+              Connect Outlook
+            </button>
+          </div>
+          <div class="cal-grid-wrap">
+            <div class="cal-weekdays" id="cal-weekdays"></div>
+            <div class="cal-days" id="cal-days"></div>
+          </div>
+        </div>
+
+        <!-- ─── GOALS & HABITS ─────────────────────────────── -->
+        <div class="view" id="view-goals">
+          <div class="view-tabs" style="margin-bottom:20px; display:inline-flex">
+            <button class="view-tab active" data-tab="goals" id="goals-tab">Goals</button>
+            <button class="view-tab" data-tab="habits" id="habits-tab">Habits</button>
           </div>
 
-          <div class="card card-half">
-            <div class="card-label">Open to-dos</div>
-            <div class="card-big-num" id="ov-todos">0</div>
-            <div class="card-big-sub">tasks pending today</div>
+          <!-- Goals panel -->
+          <div id="goals-panel">
+            <div class="section-header">
+              <div class="section-title">Long-term Goals</div>
+              <button class="btn" id="add-goal-btn">+ New Goal</button>
+            </div>
+            <div class="goals-grid" id="goals-grid"></div>
           </div>
 
-          <div class="card card-half">
-            <div class="card-label">Interests tracked</div>
-            <div class="card-big-num" id="ov-fields">0</div>
-            <div class="card-big-sub">fields of interest</div>
+          <!-- Habits panel -->
+          <div id="habits-panel" style="display:none">
+            <div class="section-header">
+              <div class="section-title">Daily Habits</div>
+              <button class="btn" id="add-habit-btn">+ New Habit</button>
+            </div>
+            <div id="habits-list"></div>
+          </div>
+        </div>
+
+        <!-- ─── JOURNAL ────────────────────────────────────── -->
+        <div class="view" id="view-journal">
+          <div class="journal-date-nav">
+            <button class="cal-nav-btn" id="journal-prev">←</button>
+            <div class="journal-date-display" id="journal-date-display">Today</div>
+            <button class="cal-nav-btn" id="journal-next">→</button>
           </div>
 
-          <div class="card" style="grid-column:span 2">
-            <div class="card-label">Objectives — progress</div>
-            <div id="ov-objectives">
-              <div class="empty" style="padding:20px 0">
-                <div class="empty-icon">◎</div>No objectives yet
+          <div class="journal-section">
+            <div class="journal-section-label">☀️ Morning Intention</div>
+            <textarea id="journal-morning" placeholder="What's your intention for today?"></textarea>
+          </div>
+
+          <div class="journal-section">
+            <div class="journal-section-label">Mood & Energy</div>
+            <div class="mood-display">
+              <div class="current-mood" id="journal-mood-display">—</div>
+              <div>
+                <div class="current-mood-label" id="journal-mood-label">No mood logged yet</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px">Logged in morning ritual</div>
               </div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-label">Coming up</div>
-            <div id="ov-upcoming">
-              <div class="empty" style="padding:20px 0">
-                <div class="empty-icon">◫</div>Nothing upcoming
-              </div>
+          <div class="journal-section">
+            <div class="journal-section-label">✍️ Free Writing</div>
+            <textarea id="journal-free" placeholder="Write anything… stream of consciousness, reflections, ideas."
+              style="min-height:160px"></textarea>
+          </div>
+
+          <div class="journal-section">
+            <div class="journal-section-label">🌙 Evening Reflection</div>
+            <textarea id="journal-evening" placeholder="How did today go?"></textarea>
+          </div>
+
+          <button class="btn" id="journal-save-btn" style="margin-top:8px">💾 Save Journal Entry</button>
+        </div>
+
+        <!-- ─── FAMILY MODE ────────────────────────────────── -->
+        <div class="view" id="view-family">
+          <div class="family-banner" id="family-banner">
+            <div
+              style="font-size:12px; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em; font-weight:700">
+              Baby Countdown</div>
+            <div class="countdown-display" id="family-countdown">— days</div>
+            <div class="countdown-label" id="family-countdown-label">Set your baby's due date in onboarding or settings
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-label">Today's tasks</div>
-            <div id="ov-tasks">
-              <div class="empty" style="padding:20px 0">
-                <div class="empty-icon">☐</div>Nothing for today
-              </div>
+          <div class="section-header">
+            <div class="section-title">Protected Time Blocks</div>
+            <button class="btn" id="add-family-block-btn">+ Add Protected Time</button>
+          </div>
+          <div id="family-blocks-list"></div>
+
+          <div class="divider"></div>
+
+          <div class="section-header">
+            <div class="section-title">Baby Milestone Checklist</div>
+          </div>
+          <div class="baby-milestones" id="baby-milestones-list"></div>
+
+          <div class="divider"></div>
+
+          <div class="section-header">
+            <div class="section-title">Weekly Family Score</div>
+          </div>
+          <div class="family-score-wrap" id="family-score-wrap">
+            <div class="ring-container" id="family-score-ring"></div>
+            <div class="family-score-legend" id="family-score-legend"></div>
+          </div>
+        </div>
+
+        <!-- ─── LIFE AREAS ─────────────────────────────────── -->
+        <div class="view" id="view-areas">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Life Areas Balance</div>
+              <div class="section-sub">Are you neglecting anything?</div>
             </div>
           </div>
-
-          <div class="card" style="grid-column:span 2">
-            <div class="card-label">Interests</div>
-            <div class="chip-wrap" id="ov-chips"></div>
+          <div class="areas-grid" id="areas-grid"></div>
+          <div class="divider"></div>
+          <div class="section-title" style="margin-bottom:16px">Balance Chart</div>
+          <div class="chart-wrap" style="max-width:500px">
+            <canvas id="areas-chart"></canvas>
           </div>
-
         </div>
-      </div>
 
-      <!-- OBJECTIVES VIEW -->
-      <div class="view" id="view-objectives">
-        <div class="obj-list" id="obj-list"></div>
-      </div>
-
-      <!-- INTERESTS VIEW -->
-      <div class="view" id="view-fields">
-        <div class="fields-grid" id="fields-grid"></div>
-      </div>
-
-      <!-- TO-DO VIEW -->
-      <div class="view" id="view-todos">
-        <div class="entry-add-row">
-          <input type="text" id="todo-input" placeholder="Add a task…">
-          <select id="todo-priority">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
-          <button class="btn" id="todo-add-btn">Add</button>
+        <!-- ─── TIME AUDIT ─────────────────────────────────── -->
+        <div class="view" id="view-timeaudit">
+          <div class="time-audit-header">
+            <div class="section-title">Time Audit</div>
+            <div class="section-sub">Build real intuition about where your time goes</div>
+          </div>
+          <div class="time-audit-summary" id="time-audit-summary">
+            <div class="audit-stat">
+              <div class="audit-stat-num" id="audit-estimated">—</div>
+              <div class="audit-stat-label">Estimated today</div>
+            </div>
+            <div class="audit-stat">
+              <div class="audit-stat-num" id="audit-actual">—</div>
+              <div class="audit-stat-label">Actual today</div>
+            </div>
+            <div class="audit-stat">
+              <div class="audit-stat-num" id="audit-accuracy">—</div>
+              <div class="audit-stat-label">Accuracy</div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="card-label" style="margin-bottom:12px">Weekly Time Audit (estimated vs actual)</div>
+            <canvas id="time-chart"></canvas>
+          </div>
         </div>
-        <div class="filter-row">
-          <button class="filter-btn active" data-filter="all">All</button>
-          <button class="filter-btn" data-filter="open">Open</button>
-          <button class="filter-btn" data-filter="done">Done</button>
+
+        <!-- ─── WINS LOG ───────────────────────────────────── -->
+        <div class="view" id="view-wins">
+          <div class="section-header">
+            <div>
+              <div class="section-title">🏆 Wins Log</div>
+              <div class="section-sub">Every task completed, every habit kept — logged here</div>
+            </div>
+          </div>
+          <div id="wins-list" class="wins-list"></div>
         </div>
-        <ul class="entries-list" id="todo-list"></ul>
+
+      </div><!-- /content -->
+    </div><!-- /main -->
+
+    <!-- FLOATING ACTION BUTTON -->
+    <button id="fab" aria-label="Quick Capture">+</button>
+
+    <!-- BOTTOM NAV BAR (mobile) -->
+    <nav class="bottom-nav">
+      <div class="bottom-nav-inner">
+        <button class="bottom-nav-btn active" data-view="dashboard">
+          <span class="bn-icon">🏠</span>
+          <span>Home</span>
+        </button>
+        <button class="bottom-nav-btn" data-view="tasks">
+          <span class="bn-icon">☑️</span>
+          <span>Tasks</span>
+        </button>
+        <button class="bottom-nav-btn" data-view="notes">
+          <span class="bn-icon">📝</span>
+          <span>Notes</span>
+        </button>
+        <button class="bottom-nav-btn" data-view="calendar">
+          <span class="bn-icon">📅</span>
+          <span>Calendar</span>
+        </button>
+        <button class="bottom-nav-btn" data-view="goals">
+          <span class="bn-icon">🎯</span>
+          <span>Goals</span>
+        </button>
       </div>
+    </nav>
 
-      <!-- CALENDAR VIEW -->
-      <div class="view" id="view-calendar">
-        <div class="cal-header">
-          <h2 id="cal-title"></h2>
-          <button class="cal-nav-btn" id="cal-prev">←</button>
-          <button class="cal-today-btn" id="cal-today-btn">Today</button>
-          <button class="cal-nav-btn" id="cal-next">→</button>
-        </div>
-        <div class="cal-grid-wrap">
-          <div class="cal-weekdays" id="cal-weekdays"></div>
-          <div class="cal-days" id="cal-days"></div>
-        </div>
-      </div>
+  </div><!-- /app -->
 
-    </div><!-- /content -->
-  </div><!-- /main -->
-</div><!-- /app -->
-
-<!-- MODAL CONTAINER -->
-<div class="modal-bg" id="modal-bg">
-  <div class="modal" id="modal"></div>
-</div>
-
-<!-- LOAD REGULAR DEFERRED SCRIPT -->
-<script src="app.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
+
 </html>
