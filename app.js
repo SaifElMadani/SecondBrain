@@ -39,12 +39,30 @@ let state = {
   familyBlocks: [],
   wins: [],
   babyMilestones: [],
+  recipes: [],
+  mealPlan: [],
+  hobbies: [],
+  categories: [],
+  events: [],
+  financeMonths: [],
+  wishlist: [],
+  dateIdeas: [],
+  checklistItems: [],
   googleCalendarEvents: [],
   outlookCalendarEvents: [],
   settings: {
     name: '',
     babyDueDate: null,
-    areas: ['family', 'career', 'growth', 'health', 'finance']
+    areas: ['family', 'career', 'growth', 'finance'],
+    finance: {
+      partners: { a: { name: '' }, b: { name: '' } },
+      accounts: [],
+      discretionarySplit: {
+        enabled: { a: false, b: false },
+        buckets: []
+      },
+      wishlistLists: []
+    }
   }
 };
 
@@ -111,19 +129,26 @@ const VIEWS = {
   notes: { title: 'Notes', sub: 'Your knowledge base' },
   documents: { title: 'Documents', sub: 'Files stored in the cloud' },
   calendar: { title: 'Calendar', sub: 'Time blocking & events' },
-  goals: { title: 'Goals & Habits', sub: 'Long-term growth' },
+  goals: { title: 'Tasks / Goals / Habits', sub: 'Stay on track' },
   journal: { title: 'Journal', sub: 'Daily reflection' },
   family: { title: 'Family Mode', sub: 'Sacred time & baby milestones' },
-  areas: { title: 'Life Areas', sub: 'Balance across all five areas' },
+  category: { title: 'Category', sub: '' },
+
   timeaudit: { title: 'Time Audit', sub: 'Build real intuition about time' },
-  wins: { title: 'Wins Log', sub: 'Every completion matters' }
+  wins: { title: 'Wins Log', sub: 'Every completion matters' },
+  hobbies: { title: 'Hobbies', sub: 'Track your passions & progress' },
+  finance: { title: 'Finance', sub: 'Manage your household budget' }
 };
 
 let currentView = 'dashboard';
+let expandedCategories = new Set();
+let activeCategoryId = null;
 
 function goTo(viewId) {
   if (!VIEWS[viewId]) return;
   currentView = viewId;
+  // Clear category selection when navigating to a regular view
+  if (viewId !== 'category') activeCategoryId = null;
 
   // Views
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${viewId}`));
@@ -134,6 +159,19 @@ function goTo(viewId) {
   // Bottom nav
   document.querySelectorAll('.bottom-nav-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === viewId));
 
+  // Animate bottom nav pill indicator
+  const bnBtns = document.querySelectorAll('.bottom-nav-btn[data-view]');
+  const bnPill = document.getElementById('bn-pill');
+  if (bnPill) {
+    bnBtns.forEach((b, i) => {
+      if (b.dataset.view === viewId) {
+        const navW = b.parentElement.offsetWidth;
+        const btnW = navW / bnBtns.length;
+        bnPill.style.left = (btnW * i + (btnW - 48) / 2) + 'px';
+      }
+    });
+  }
+
   // Topbar
   const { title, sub } = VIEWS[viewId];
   document.getElementById('topbar-title').textContent = title;
@@ -142,6 +180,11 @@ function goTo(viewId) {
   // Topbar actions
   const acts = document.getElementById('topbar-actions');
   acts.innerHTML = '';
+
+  // Auto-expand Suivi if navigating to one of its children
+  if (['goals', 'sprint', 'wins', 'timeaudit'].includes(viewId) && !suiviExpanded) {
+    toggleSuiviExpand();
+  }
 
   // Close mobile sidebar
   document.getElementById('app').classList.remove('sidebar-open');
@@ -159,12 +202,14 @@ function renderView(id) {
     case 'notes': renderNotesList(); break;
     case 'documents': renderDocuments(); break;
     case 'calendar': renderCalendar(); break;
-    case 'goals': renderGoals(); break;
+    case 'goals': renderSuiviTabBar(); renderSuiviActiveTab(); break;
     case 'journal': renderJournal(); break;
     case 'family': renderFamily(); break;
-    case 'areas': renderAreas(); break;
+    case 'category': renderCategoryContent(); break;
     case 'timeaudit': renderTimeAudit(); break;
     case 'wins': renderWins(); break;
+    case 'hobbies': renderHobbies(); break;
+    case 'finance': renderFinance(); break;
   }
 }
 
@@ -276,6 +321,44 @@ auth.onAuthStateChanged(async user => {
     currentUser = user;
     document.getElementById('screen-login').classList.remove('active');
     try { await loadAllData(); } catch (e) { console.error('loadAllData error', e); }
+    await seedInitialCategories();
+    await seedDateIdeas();
+    // Migrate existing "Dates" categories to the correct moduleType
+    const datesToMigrate = state.categories.filter(c => c.name === 'Dates' && c.moduleType !== 'dateIdeas');
+    for (const dc of datesToMigrate) {
+      dc.moduleType = 'dateIdeas';
+      await saveDoc('categories', dc.id, { moduleType: 'dateIdeas' });
+    }
+    if (datesToMigrate.length) renderSidebarCategories();
+    // Migrate category tabs: auto-create tabs for generic categories that have content
+    try {
+      for (const cat of state.categories) {
+        if (cat.moduleType !== 'generic' && cat.moduleType !== undefined) continue;
+        if ((cat.tabs || []).length > 0) continue;
+        const hasTasks = state.tasks.some(t => t.categoryId === cat.id);
+        const hasGoals = state.goals.some(g => g.categoryId === cat.id);
+        const hasHabits = state.habits.some(h => h.categoryId === cat.id);
+        const newTabs = [];
+        if (hasTasks) newTabs.push({ id: uid(), type: 'tasks', label: '☑️ Tasks' });
+        if (hasGoals) newTabs.push({ id: uid(), type: 'goals', label: '🎯 Goals' });
+        if (hasHabits) newTabs.push({ id: uid(), type: 'habits', label: '🔥 Habits' });
+        if (newTabs.length) {
+          cat.tabs = newTabs;
+          await saveDoc('categories', cat.id, { tabs: newTabs });
+        }
+      }
+    } catch (e) { console.error('Tab migration error', e); }
+    // Migrate Suivi tabs: create default if not set
+    try {
+      if (!state.settings.suiviTabs || !state.settings.suiviTabs.length) {
+        state.settings.suiviTabs = [
+          { id: uid(), type: 'tasks', label: '☑️ Tasks' },
+          { id: uid(), type: 'goals', label: '🎯 Goals' },
+          { id: uid(), type: 'habits', label: '🔥 Habits' }
+        ];
+        await saveProfile({ suiviTabs: state.settings.suiviTabs });
+      }
+    } catch (e) { console.error('Suivi tabs migration error', e); }
     checkOnboarding();
   } else {
     currentUser = null;
@@ -296,7 +379,7 @@ async function loadAllData() {
   }
 
   // Load collections
-  const collections = ['tasks', 'notes', 'habits', 'goals', 'captures', 'documents', 'sprints', 'timeEntries', 'familyBlocks', 'wins', 'babyMilestones'];
+  const collections = ['tasks', 'notes', 'habits', 'goals', 'captures', 'documents', 'sprints', 'timeEntries', 'familyBlocks', 'wins', 'babyMilestones', 'recipes', 'mealPlan', 'hobbies', 'categories', 'events', 'financeMonths', 'wishlist', 'dateIdeas', 'checklistItems'];
   for (const c of collections) {
     const snap = await col(c).orderBy('createdAt', 'desc').get().catch(() => ({ docs: [] }));
     state[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -375,22 +458,26 @@ document.getElementById('ob-finish').addEventListener('click', async () => {
     await saveDoc('babyMilestones', id, data);
   }
 
-  // Seed first sprint objective if provided
+  // Seed first sprint objectives as goals if provided
   if (goal) {
     const now = Date.now();
     const quarter = getQuarterLabel();
-    const sprintId = uid();
-    const sprintData = {
-      id: sprintId, quarter, title: goal,
-      objectives: [
-        { id: uid(), title: 'Prepare for baby\'s arrival', progress: 0, weeklyActions: ['Set up nursery', 'Book hospital visit', 'Prepare hospital bag'] },
-        { id: uid(), title: 'Build second brain system', progress: 20, weeklyActions: ['Set up all modules', 'Build daily ritual habit', 'Process inbox daily'] },
-        { id: uid(), title: 'Career focus', progress: 0, weeklyActions: ['Identify key projects', 'Block deep work time', 'Weekly review'] }
-      ],
-      createdAt: now
-    };
-    state.sprints.push(sprintData);
-    await saveDoc('sprints', sprintId, sprintData);
+    const sprintObjs = [
+      { title: 'Prepare for baby\'s arrival', weeklyActions: ['Set up nursery', 'Book hospital visit', 'Prepare hospital bag'] },
+      { title: 'Build second brain system', weeklyActions: ['Set up all modules', 'Build daily ritual habit', 'Process inbox daily'] },
+      { title: 'Career focus', weeklyActions: ['Identify key projects', 'Block deep work time', 'Weekly review'] }
+    ];
+    for (const obj of sprintObjs) {
+      const id = uid();
+      const data = {
+        id, title: obj.title, area: '', categoryId: null,
+        progress: 0, milestones: [], weeklyActions: obj.weeklyActions,
+        isSprintObjective: true, sprintQuarter: quarter,
+        deadline: null, createdAt: now
+      };
+      state.goals.push(data);
+      await saveDoc('goals', id, data);
+    }
   }
 
   document.getElementById('screen-onboarding').classList.remove('active');
@@ -398,23 +485,21 @@ document.getElementById('ob-finish').addEventListener('click', async () => {
   launchApp();
 });
 
-function getQuarterLabel() {
-  const now = new Date();
-  const q = Math.ceil((now.getMonth() + 1) / 3);
-  return `Q${q} ${now.getFullYear()}`;
-}
-
 // ═══════════════════════════════════════════════════════════════
 // LAUNCH APP (after auth + onboarding)
 // ═══════════════════════════════════════════════════════════════
 function launchApp() {
   document.getElementById('app').classList.remove('hidden');
   goTo('dashboard');
+  renderSidebarCategories();
   checkRitual();
   startDayProgressTicker();
   startHourlyNudge();
   updateInboxBadge();
   restoreCalendarConnections();
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -543,12 +628,12 @@ async function saveRitual() {
 // ═══════════════════════════════════════════════════════════════
 function renderDashboard() {
   renderGreeting();
-  renderTimeRing();
   renderDashHabits();
   renderDashStats();
   renderDashFamilyBlocks();
   renderDashRitualSummary();
   renderDashCaptures();
+  renderDashAchievements();
 }
 
 function renderGreeting() {
@@ -567,8 +652,8 @@ function renderGreeting() {
   document.getElementById('greeting-text').textContent = `${greeting}, ${name} 👋`;
 
   // Today's sprint focus
-  const sprint = state.sprints[0];
-  const obj = sprint?.objectives?.[0];
+  const sprintGoals = state.goals.filter(g => g.isSprintObjective && g.sprintQuarter === getQuarterLabel());
+  const obj = sprintGoals[0];
   const focusEl = document.getElementById('today-focus');
   if (obj) {
     focusEl.textContent = obj.weeklyActions?.[0] || obj.title;
@@ -584,17 +669,20 @@ function renderTimeRing() {
   let pct = ((now - start) / (end - start)) * 100;
   pct = Math.max(0, Math.min(100, pct));
 
-  document.getElementById('time-ring-pct').textContent = `${Math.round(pct)}%`;
+  const pctEl = document.getElementById('time-ring-pct');
+  if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
 
   const remaining = Math.max(0, Math.floor((end - now) / 60000));
   const remH = Math.floor(remaining / 60), remM = remaining % 60;
-  document.getElementById('time-ring-label').textContent =
+  const labelEl = document.getElementById('time-ring-label');
+  if (labelEl) labelEl.textContent =
     remaining > 0 ? `${remH}h ${remM}m of your day left` : 'Day is over — great work!';
 
+  const wrapEl = document.getElementById('time-ring-wrap');
+  if (!wrapEl) return;
   const r = 50, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
   const color = pct < 50 ? '#6C63FF' : pct < 75 ? '#FFB347' : '#FF6B6B';
-
-  document.getElementById('time-ring-wrap').innerHTML = `
+  wrapEl.innerHTML = `
     <svg width="120" height="120" viewBox="0 0 120 120">
       <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--surface3)" stroke-width="10"/>
       <circle cx="60" cy="60" r="${r}" fill="none" stroke="${color}" stroke-width="10"
@@ -703,6 +791,214 @@ function renderDashCaptures() {
     </div>`).join('');
 }
 
+function renderDashAchievements() {
+  const el = document.getElementById('dash-achievements-content');
+  const today = dk();
+  const sevenDaysAgo = dk(new Date(Date.now() - 7 * 86400000));
+
+  const todayEntries = state.timeEntries.filter(e => e.date === today);
+  const totalMin = todayEntries.reduce((s, e) => s + (e.actualMin || 0), 0);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  const timeUsed = totalMin >= 60 ? `${h}h ${m}m` : `${totalMin}m`;
+
+  const doneToday = state.tasks.filter(t => t.done && t.completedAt?.startsWith?.(today)).length;
+  const doneWeek = state.tasks.filter(t => t.done && t.completedAt >= sevenDaysAgo).length;
+
+  const activeStreaks = state.habits.map(h => ({ name: h.name, streak: calcStreak(h.checkIns || []) })).filter(s => s.streak > 0).sort((a, b) => b.streak - a.streak);
+  const recentWins = state.wins.slice(-3).reverse();
+
+  const allCats = {};
+  state.categories.forEach(c => { allCats[c.id] = { name: c.icon ? c.icon + ' ' + c.name : c.name, color: c.color || 'var(--accent)' }; });
+  const rootMap = {};
+  function toRoot(categoryId) {
+    if (!categoryId) return null;
+    if (rootMap[categoryId] !== undefined) return rootMap[categoryId];
+    const r = getCategoryRoot(categoryId);
+    rootMap[categoryId] = r ? r.id : null;
+    return rootMap[categoryId];
+  }
+  function catStyle(id) {
+    const c = allCats[id];
+    return c ? `color:${c.color}; background:${c.color}18; border-left:3px solid ${c.color}` : '';
+  }
+  function catLabel(id) { return allCats[id] ? allCats[id].name : 'Uncategorized'; }
+
+  let html = '';
+
+  html += `<div class="achieve-stats">
+    <div class="achieve-stat">
+      <div class="achieve-num green">${timeUsed}</div>
+      <div class="achieve-label">Time logged today</div>
+    </div>
+    <div class="achieve-stat">
+      <div class="achieve-num accent">${doneWeek}</div>
+      <div class="achieve-label">Tasks this week</div>
+    </div>
+    <div class="achieve-stat">
+      <div class="achieve-num yellow">${activeStreaks.length ? activeStreaks[0].streak : 0}🔥</div>
+      <div class="achieve-label">Best habit streak</div>
+    </div>
+  </div>`;
+
+  // ── Weekly task chart: completed vs created day by day ──
+  const dayLabels = [];
+  const dayCompleted = [];
+  const dayCreated = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = dk(d);
+    const label = i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
+    dayLabels.push(label);
+    dayCompleted.push(state.tasks.filter(t => t.done && t.completedAt?.startsWith?.(key)).length);
+    dayCreated.push(state.tasks.filter(t => {
+      const created = t.createdAt ? dk(new Date(t.createdAt)) : null;
+      return created === key;
+    }).length);
+  }
+  const maxVal = Math.max(1, ...dayCompleted, ...dayCreated);
+  html += `<div class="achieve-section">
+    <div class="achieve-section-title">📊 Weekly tasks</div>
+    <div class="achieve-week-chart">`;
+  for (let i = 0; i < 7; i++) {
+    const ch = Math.round((dayCompleted[i] / maxVal) * 100);
+    const cr = Math.round((dayCreated[i] / maxVal) * 100);
+    html += `<div class="achieve-week-day">
+      <div class="achieve-week-label">${dayLabels[i]}</div>
+      <div class="achieve-week-bars">
+        <div class="achieve-week-bar-wrap"><div class="achieve-week-bar created" style="height:${cr}%"></div></div>
+        <div class="achieve-week-bar-wrap"><div class="achieve-week-bar completed" style="height:${ch}%"></div></div>
+      </div>
+      <div class="achieve-week-nums">
+        <span class="created-num">${dayCreated[i]}</span>
+        <span class="completed-num">${dayCompleted[i]}</span>
+      </div>
+    </div>`;
+  }
+  html += `</div>
+    <div class="achieve-week-legend">
+      <span><span class="legend-dot created"></span> Created</span>
+      <span><span class="legend-dot completed"></span> Completed</span>
+    </div>
+  </div>`;
+
+  // ── Journal check: morning / afternoon per day ──
+  html += `<div class="achieve-section">
+    <div class="achieve-section-title">📓 Journal check (7 days)</div>
+    <div class="achieve-journal-week">`;
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = dk(d);
+    const entry = state.journal[key] || {};
+    const morning = !!entry.morning;
+    const afternoon = !!entry.afternoon;
+    const label = i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
+    html += `<div class="achieve-journal-day">
+      <div class="achieve-journal-day-label">${label}</div>
+      <div class="achieve-journal-checks">
+        <span class="achieve-journal-check${morning ? ' done' : ''}" title="Morning">☀️</span>
+        <span class="achieve-journal-check${afternoon ? ' done' : ''}" title="Afternoon">🌙</span>
+      </div>
+    </div>`;
+  }
+  html += `</div></div>`;
+
+  // ── Tasks by category ──
+  const taskBuckets = {};
+  state.tasks.filter(t => t.done && t.completedAt >= sevenDaysAgo).forEach(t => {
+    const r = toRoot(t.categoryId);
+    const key = r || 'none';
+    taskBuckets[key] = (taskBuckets[key] || 0) + 1;
+  });
+  const taskTotal = doneWeek || 1;
+  const taskKeys = Object.keys(taskBuckets).sort((a, b) => taskBuckets[b] - taskBuckets[a]);
+
+  if (taskKeys.length) {
+    html += `<div class="achieve-section">
+      <div class="achieve-section-title">Tasks by category (this week)</div>
+      <div class="achieve-cats">${taskKeys.map(k => {
+        const pct = Math.round((taskBuckets[k] / taskTotal) * 100);
+        return `<div class="achieve-cat-row" style="${catStyle(k)}">
+          <div class="achieve-cat-label">${catLabel(k)}</div>
+          <div class="achieve-cat-bar"><div class="achieve-cat-fill" style="width:${pct}%;background:${allCats[k]?.color || 'var(--accent)'}"></div></div>
+          <div class="achieve-cat-num">${taskBuckets[k]} <span style="color:var(--text-muted)">(${pct}%)</span></div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }
+
+  const habitBuckets = {};
+  state.habits.forEach(h => {
+    const streak = calcStreak(h.checkIns || []);
+    if (streak <= 0) return;
+    const r = toRoot(h.categoryId);
+    const key = r || 'none';
+    if (!habitBuckets[key]) habitBuckets[key] = [];
+    habitBuckets[key].push({ name: h.name, streak });
+  });
+  const habitKeys = Object.keys(habitBuckets).sort((a, b) => {
+    const maxA = Math.max(...habitBuckets[a].map(h => h.streak));
+    const maxB = Math.max(...habitBuckets[b].map(h => h.streak));
+    return maxB - maxA;
+  });
+
+  if (habitKeys.length) {
+    html += `<div class="achieve-section">
+      <div class="achieve-section-title">Habit streaks by category</div>
+      <div class="achieve-cats">${habitKeys.map(k => {
+        const items = habitBuckets[k].sort((a, b) => b.streak - a.streak);
+        return `<div class="achieve-cat-row achieve-cat-row-col" style="${catStyle(k)}">
+          <div class="achieve-cat-label">${catLabel(k)}</div>
+          <div class="achieve-habit-list">${items.map(h =>
+            `<div class="achieve-habit-item"><span>🔥</span> <span>${esc(h.name)}</span> <span class="achieve-streak-num">${h.streak}d</span></div>`
+          ).join('')}</div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }
+
+  const goalBuckets = {};
+  state.goals.forEach(g => {
+    const r = toRoot(g.categoryId);
+    const key = r || 'none';
+    if (!goalBuckets[key]) goalBuckets[key] = [];
+    goalBuckets[key].push({ title: g.title, progress: g.progress || 0 });
+  });
+  const goalKeys = Object.keys(goalBuckets).sort((a, b) => {
+    const avgA = goalBuckets[a].reduce((s, g) => s + g.progress, 0) / goalBuckets[a].length;
+    const avgB = goalBuckets[b].reduce((s, g) => s + g.progress, 0) / goalBuckets[b].length;
+    return avgB - avgA;
+  });
+
+  if (goalKeys.length) {
+    html += `<div class="achieve-section">
+      <div class="achieve-section-title">Goal progress by category</div>
+      <div class="achieve-cats">${goalKeys.map(k => {
+        const avg = Math.round(goalBuckets[k].reduce((s, g) => s + g.progress, 0) / goalBuckets[k].length);
+        return `<div class="achieve-cat-row" style="${catStyle(k)}">
+          <div class="achieve-cat-label">${catLabel(k)}</div>
+          <div class="achieve-cat-bar"><div class="achieve-cat-fill" style="width:${avg}%;background:${allCats[k]?.color || 'var(--accent)'}"></div></div>
+          <div class="achieve-cat-num">${avg}%</div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }
+
+  if (recentWins.length) {
+    html += `<div class="achieve-section">
+      <div class="achieve-section-title">Recent Wins</div>
+      <div class="achieve-wins">${recentWins.map(w =>
+        `<div class="achieve-win">${esc(w.text)}</div>`
+      ).join('')}</div>
+    </div>`;
+  }
+
+  if (!totalMin && !doneToday && !doneWeek && !activeStreaks.length && !recentWins.length) {
+    html = `<div style="font-size:13px; color:var(--text-muted)">Complete tasks, habits, and goals to see your achievements here.</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // QUICK CAPTURE
 // ═══════════════════════════════════════════════════════════════
@@ -774,6 +1070,7 @@ function toggleVoice() {
 function updateInboxBadge() {
   const unprocessed = state.captures.filter(c => !c.processed).length;
   const badge = document.getElementById('inbox-badge');
+  if (!badge) return;
   badge.textContent = unprocessed;
   badge.style.display = unprocessed > 0 ? 'flex' : 'none';
 }
@@ -859,38 +1156,42 @@ document.querySelectorAll('.area-filter-btn').forEach(btn => {
 
 function renderTasks() {
   const today = dk();
-  let tasks = [...state.tasks];
+  const allTasks = [...state.tasks];
+  const undatedTasks = allTasks.filter(t => !t.dueDate && !t.done);
+  let tasks = allTasks.filter(t => t.dueDate);
 
-  // Tab filter
-  if (taskTab === 'today') tasks = tasks.filter(t => !t.done && t.dueDate <= today || !t.done && !t.dueDate);
+  // Tab filter (dated tasks only)
+  if (taskTab === 'today') tasks = tasks.filter(t => !t.done && t.dueDate <= today);
   if (taskTab === 'upcoming') tasks = tasks.filter(t => !t.done && t.dueDate > today);
 
   // Area filter
   if (taskAreaFilter !== 'all') tasks = tasks.filter(t => t.area === taskAreaFilter);
 
   // Search
-  if (taskSearch) tasks = tasks.filter(t => t.title.toLowerCase().includes(taskSearch));
+  if (taskSearch) {
+    tasks = tasks.filter(t => t.title.toLowerCase().includes(taskSearch));
+  }
 
   const el = document.getElementById('task-list');
-  if (!tasks.length) {
+  if (!tasks.length && !undatedTasks.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">☑️</div><p>No tasks here.</p><small>Add a task or adjust filters.</small></div>`;
     return;
   }
 
-  // Sort: undone first, then by due date
+  // Sort dated tasks: undone first, then by due date
   tasks.sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
     if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
     return (b.createdAt || 0) - (a.createdAt || 0);
   });
 
-  el.innerHTML = tasks.map(t => {
+  function taskCardHtml(t) {
     const overdue = !t.done && t.dueDate && t.dueDate < today;
     return `<div class="task-card${t.done ? ' done' : ''}" data-id="${t.id}">
       <button class="task-check" onclick="toggleTask('${t.id}')" aria-label="Toggle task">
         <span class="task-check-mark">✓</span>
       </button>
-      <div class="task-body">
+      <div class="task-body" onclick="openAddTaskModal('', null, state.tasks.find(t=>t.id==='${t.id}'))" style="cursor:pointer">
         <div class="task-title">${esc(t.title)}</div>
         <div class="task-meta">
           ${t.dueDate ? `<span class="task-due${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}${relativeDay(t.dueDate)}</span>` : ''}
@@ -904,42 +1205,68 @@ function renderTasks() {
         <button class="task-del-btn" onclick="deleteTask('${t.id}')" aria-label="Delete">×</button>
       </div>
     </div>`;
-  }).join('');
+  }
+
+  let html = tasks.map(t => taskCardHtml(t)).join('');
+
+  if (undatedTasks.length) {
+    html += `<div class="task-section-nodate" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">📅 Sans date — ajoute une date pour voir cette tâche dans le calendrier</div>
+      ${undatedTasks.map(t => taskCardHtml(t)).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html;
 }
 
-function openAddTaskModal(prefill = '', captureId = null) {
+function openAddTaskModal(prefill = '', captureId = null, item = null, overrides = {}) {
+  const editing = !!item;
   openModal({
-    title: 'New Task',
-    sub: 'Give it a time estimate — it helps with time blindness',
+    title: editing ? 'Edit Task' : 'New Task',
+    sub: editing ? 'Update task details' : 'Give it a time estimate — it helps with time blindness',
     fields: [
-      { name: 'title', label: 'Task', placeholder: 'What needs to happen?', required: true, value: prefill },
-      { name: 'dueDate', label: 'Due Date', type: 'date' },
-      { name: 'duration', label: 'Time Estimate (minutes)', type: 'number', placeholder: '30' },
-      { name: 'priority', label: 'Priority', type: 'select', options: [['medium', 'Medium'], ['high', 'High'], ['low', 'Low']] },
-      { name: 'area', label: 'Life Area', type: 'select', options: [['', 'None'], ['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['health', 'Health'], ['finance', 'Finance']] }
+      { name: 'title', label: 'Task', placeholder: 'What needs to happen?', required: true, value: editing ? item.title : prefill },
+      { name: 'dueDate', label: 'Due Date', type: 'date', required: true, value: editing ? (item.dueDate || '') : '' },
+      { name: 'duration', label: 'Time Estimate (minutes)', type: 'number', placeholder: '30', value: editing ? (item.duration || '') : '' },
+      { name: 'priority', label: 'Priority', type: 'select', value: editing ? (item.priority || 'medium') : 'medium', options: [['medium', 'Medium'], ['high', 'High'], ['low', 'Low']] },
+      { name: 'area', label: 'Life Area', type: 'select', value: overrides.area || (editing ? (item.area || '') : ''), options: [['', 'None'], ['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['finance', 'Finance']] },
+      { name: 'categoryId', label: 'Category', type: 'select', value: overrides.categoryId || (editing ? (item.categoryId || '') : (activeCategoryId || '')), options: buildCategoryOptions() }
     ],
-    submit: 'Add Task',
+    submit: editing ? 'Save Changes' : 'Add Task',
     onSubmit: async v => {
       if (!v.duration) {
         toast('Please add a time estimate — even a rough one helps!', 'info', 4000);
       }
-      const id = uid();
-      const data = {
-        id, title: v.title, dueDate: v.dueDate || null,
-        duration: parseInt(v.duration) || 0,
-        priority: v.priority || 'medium',
-        area: v.area || '', done: false, timerRunning: false,
-        createdAt: Date.now()
-      };
-      state.tasks.unshift(data);
-      await saveDoc('tasks', id, data);
-      if (captureId) {
-        const cap = state.captures.find(c => c.id === captureId);
-        if (cap) { cap.processed = true; await saveDoc('captures', captureId, { processed: true }); }
-        updateInboxBadge();
-        if (currentView === 'inbox') renderInbox();
+      if (editing) {
+        Object.assign(item, {
+          title: v.title, dueDate: v.dueDate || null,
+          duration: parseInt(v.duration) || 0,
+          priority: v.priority || 'medium',
+          area: v.area || '',
+          categoryId: v.categoryId || null
+        });
+        await saveDoc('tasks', item.id, item);
+      } else {
+        const id = uid();
+        const data = {
+          id, title: v.title, dueDate: v.dueDate || null,
+          duration: parseInt(v.duration) || 0,
+          priority: v.priority || 'medium',
+          area: v.area || '', categoryId: v.categoryId || null,
+          done: false, timerRunning: false,
+          createdAt: Date.now()
+        };
+        state.tasks.unshift(data);
+        await saveDoc('tasks', id, data);
+        if (captureId) {
+          const cap = state.captures.find(c => c.id === captureId);
+          if (cap) { cap.processed = true; await saveDoc('captures', captureId, { processed: true }); }
+          updateInboxBadge();
+          if (currentView === 'inbox') renderInbox();
+        }
       }
       renderTasks();
+      if (currentView === 'category' && activeCategoryId) renderCategoryContent();
       if (currentView === 'dashboard') renderDashStats();
     }
   });
@@ -954,7 +1281,7 @@ async function toggleTask(id) {
 
   if (task.done) {
     // Log win
-    await logWin(`Completed: ${task.title}`);
+    await logWin(`Completed: ${task.title}`, task.categoryId);
     // Show pause screen
     openPauseScreen(task.title);
   }
@@ -1023,12 +1350,15 @@ async function completeTimer() {
 
   // Log time entry
   const teId = uid();
-  const te = { id: teId, taskId: timerTaskId, estimatedMin: task?.duration || 0, actualMin, date: dk(), createdAt: Date.now() };
+  const te = { id: teId, taskId: timerTaskId, estimatedMin: task?.duration || 0, actualMin, date: dk(), categoryId: task?.categoryId || null, createdAt: Date.now() };
   state.timeEntries.push(te);
   await saveDoc('timeEntries', teId, te);
 
   clearTimer();
   toast('Timer done! ⏱', 'success');
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Temps écoulé', { body: task ? `Temps écoulé — ${task.title}` : 'Temps écoulé' });
+  }
 }
 
 document.getElementById('timer-done-btn').addEventListener('click', async () => {
@@ -1091,21 +1421,17 @@ document.getElementById('pause-skip-btn').addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// SPRINT SYSTEM
+// SPRINT SYSTEM (unified with goals)
 // ═══════════════════════════════════════════════════════════════
 function renderSprint() {
-  const sprint = state.sprints[0];
-  if (!sprint) {
-    document.getElementById('sprint-objectives-list').innerHTML =
-      `<div class="empty-state"><div class="empty-icon">🚀</div><p>No sprint set up yet.</p><small>Add your first quarterly objective below.</small></div>`;
-    return;
-  }
-
-  document.getElementById('sprint-quarter').textContent = sprint.quarter || getQuarterLabel();
-  document.getElementById('sprint-main-title').textContent = sprint.title || 'Your 3-Month Focus';
-
-  // Quarter progress (days elapsed in quarter)
   const now = new Date();
+  const qLabel = getQuarterLabel();
+  const sprintGoals = state.goals.filter(g => g.isSprintObjective && g.sprintQuarter === qLabel);
+
+  document.getElementById('sprint-quarter').textContent = qLabel;
+  document.getElementById('sprint-main-title').textContent = 'Quarterly Objectives';
+
+  // Quarter progress
   const qStart = getQuarterStart();
   const qEnd = getQuarterEnd();
   const qPct = Math.min(100, Math.round(((now - qStart) / (qEnd - qStart)) * 100));
@@ -1113,56 +1439,69 @@ function renderSprint() {
   document.getElementById('sprint-q-fill').style.width = `${qPct}%`;
 
   const list = document.getElementById('sprint-objectives-list');
-  const objs = sprint.objectives || [];
-  if (!objs.length) {
-    list.innerHTML = `<div class="empty-state" style="padding:20px 0"><p>Add your first objective.</p></div>`;
+  if (!sprintGoals.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🚀</div><p>No sprint objectives this quarter.</p><small>Mark goals as "Sprint Objective" from Goals & Habits, or create a new goal below.</small></div>`;
     return;
   }
-  list.innerHTML = objs.map((o, oi) => `
-    <div class="sprint-obj" data-sprint="${sprint.id}" data-obj="${o.id}">
-      <div class="sprint-obj-header">
-        <div class="sprint-obj-title">${esc(o.title)}</div>
-        <div class="sprint-obj-progress">${o.progress || 0}%</div>
-        <div class="stepper" style="gap:6px">
-          <button onclick="adjustSprintProgress('${sprint.id}','${o.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">−</button>
-          <button onclick="adjustSprintProgress('${sprint.id}','${o.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">+</button>
+
+  // Group by category
+  const grouped = {};
+  for (const g of sprintGoals) {
+    const catLabel = g.categoryId ? getCategoryLabel(g.categoryId) : 'Uncategorized';
+    if (!grouped[catLabel]) grouped[catLabel] = [];
+    grouped[catLabel].push(g);
+  }
+
+  let html = '';
+  for (const [catLabel, goals] of Object.entries(grouped)) {
+    html += `<div class="sprint-group"><div class="sprint-group-title">${esc(catLabel)}</div>`;
+    html += goals.map(g => `
+      <div class="sprint-obj">
+        <div class="sprint-obj-header">
+          <div class="sprint-obj-title" onclick="openAddGoalModal(state.goals.find(g=>g.id==='${g.id}'))" style="cursor:pointer">${esc(g.title)}</div>
+          <div class="sprint-obj-progress">${g.progress || 0}%</div>
+          <div class="stepper" style="gap:6px">
+            <button onclick="adjustGoalProgress('${g.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">−</button>
+            <button onclick="adjustGoalProgress('${g.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">+</button>
+          </div>
+          <button onclick="removeSprintObjective('${g.id}')" style="color:var(--text-muted);font-size:18px;padding:8px" title="Remove from sprint">×</button>
         </div>
-        <button onclick="deleteSprintObjective('${sprint.id}','${o.id}')" style="color:var(--text-muted);font-size:18px;padding:8px" title="Remove">×</button>
-      </div>
-      <div class="prog-track"><div class="prog-fill" style="width:${o.progress || 0}%"></div></div>
-      ${(o.weeklyActions || []).length ? `
-      <div class="sprint-weekly">
-        <div class="sprint-weekly-title">This week's actions</div>
-        ${o.weeklyActions.map(a => `<div class="sprint-action-item"><span style="color:var(--accent)">→</span> ${esc(a)}</div>`).join('')}
-      </div>` : ''}
-    </div>`).join('');
+        <div class="prog-track"><div class="prog-fill" style="width:${g.progress || 0}%"></div></div>
+        ${(g.weeklyActions || []).length ? `
+        <div class="sprint-weekly">
+          <div class="sprint-weekly-title">This week's actions</div>
+          ${g.weeklyActions.map(a => `<div class="sprint-action-item"><span style="color:var(--accent)">→</span> ${esc(a)}</div>`).join('')}
+        </div>` : ''}
+      </div>`).join('');
+    html += '</div>';
+  }
+  list.innerHTML = html;
 }
 
-async function adjustSprintProgress(sprintId, objId, delta) {
-  const sprint = state.sprints.find(s => s.id === sprintId);
-  if (!sprint) return;
-  const obj = (sprint.objectives || []).find(o => o.id === objId);
-  if (!obj) return;
-  obj.progress = Math.max(0, Math.min(100, (obj.progress || 0) + delta));
-  await saveDoc('sprints', sprintId, { objectives: sprint.objectives });
-  renderSprint();
-  renderGreeting();
+function getQuarterLabel() {
+  const now = new Date();
+  const q = Math.floor(now.getMonth() / 3) + 1;
+  return `${now.getFullYear()}-Q${q}`;
 }
 
-async function deleteSprintObjective(sprintId, objId) {
-  const sprint = state.sprints.find(s => s.id === sprintId);
-  if (!sprint) return;
-  sprint.objectives = sprint.objectives.filter(o => o.id !== objId);
-  await saveDoc('sprints', sprintId, { objectives: sprint.objectives });
+async function removeSprintObjective(goalId) {
+  const goal = state.goals.find(g => g.id === goalId);
+  if (!goal) return;
+  goal.isSprintObjective = false;
+  goal.sprintQuarter = null;
+  await saveDoc('goals', goalId, { isSprintObjective: false, sprintQuarter: null });
   renderSprint();
+  if (currentView === 'goals') renderGoals();
 }
 
 document.getElementById('add-sprint-obj-btn').addEventListener('click', () => {
   openModal({
-    title: 'New Objective',
+    title: 'New Sprint Objective',
     sub: 'A big outcome to achieve this quarter',
     fields: [
       { name: 'title', label: 'Objective', placeholder: 'e.g. Prepare for baby arrival', required: true },
+      { name: 'area', label: 'Life Area', type: 'select', options: [['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['finance', 'Finance']] },
+      { name: 'categoryId', label: 'Category', type: 'select', options: buildCategoryOptions() },
       { name: 'w1', label: 'Weekly Action 1', placeholder: 'e.g. Book hospital tour' },
       { name: 'w2', label: 'Weekly Action 2', placeholder: 'e.g. Set up nursery' },
       { name: 'w3', label: 'Weekly Action 3', placeholder: 'e.g. Prepare hospital bag' }
@@ -1170,17 +1509,17 @@ document.getElementById('add-sprint-obj-btn').addEventListener('click', () => {
     submit: 'Add Objective',
     onSubmit: async v => {
       const weeklyActions = [v.w1, v.w2, v.w3].filter(Boolean);
-      const newObj = { id: uid(), title: v.title, progress: 0, weeklyActions };
-
-      let sprint = state.sprints[0];
-      if (!sprint) {
-        const id = uid();
-        sprint = { id, quarter: getQuarterLabel(), title: 'My Sprint', objectives: [], createdAt: Date.now() };
-        state.sprints.unshift(sprint);
-      }
-      sprint.objectives = [...(sprint.objectives || []), newObj];
-      await saveDoc('sprints', sprint.id, { objectives: sprint.objectives, quarter: sprint.quarter, title: sprint.title });
+      const id = uid();
+      const data = {
+        id, title: v.title, area: v.area || '', categoryId: v.categoryId || null,
+        progress: 0, milestones: [], weeklyActions,
+        isSprintObjective: true, sprintQuarter: getQuarterLabel(),
+        deadline: null, createdAt: Date.now()
+      };
+      state.goals.unshift(data);
+      await saveDoc('goals', id, data);
       renderSprint();
+      if (currentView === 'goals') renderGoals();
     }
   });
 });
@@ -1358,7 +1697,7 @@ function renderDocuments() {
 
 function openDocument(id) {
   const doc = state.documents.find(d => d.id === id);
-  if (!doc?.url) return;
+  if (!doc?.url) { toast('Document URL unavailable — try re-uploading', 'error'); return; }
   if (doc.mimeType?.includes('pdf') || doc.mimeType?.startsWith('image/')) {
     window.open(doc.url, '_blank');
   } else {
@@ -1371,7 +1710,7 @@ async function deleteDocument(id) {
   if (!doc || !confirm(`Delete "${doc.name}"?`)) return;
   try {
     if (doc.storagePath) await storage.ref(doc.storagePath).delete();
-  } catch (e) { }
+  } catch (e) { toast(`Storage delete failed: ${e.message}`, 'error'); }
   state.documents = state.documents.filter(d => d.id !== id);
   await deleteDoc('documents', id);
   renderDocuments();
@@ -1638,7 +1977,10 @@ function renderCalendar() {
     cell.innerHTML = `
       <div class="day-num">${d.getDate()}</div>
       <div class="day-evs">
-        ${dayEvents.slice(0, 3).map(e => `<div class="day-ev ${e.source || e.area || 'personal'}">${esc(e.title)}</div>`).join('')}
+        ${dayEvents.slice(0, 3).map(e => {
+          const icon = e.type === 'task' ? '☑️' : e.type === 'family' ? '👨‍👩‍👧' : '📅';
+          return `<div class="day-ev ${e.type === 'task' ? 'task' : e.source || e.area || 'personal'}">${icon} ${esc(e.title)}</div>`;
+        }).join('')}
         ${dayEvents.length > 3 ? `<div class="day-ev-more">+${dayEvents.length - 3} more</div>` : ''}
       </div>`;
     if (!outside) cell.addEventListener('click', () => openDayModal(key, d));
@@ -1655,6 +1997,10 @@ function getEventsForDate(dateStr) {
   const familyEvents = state.familyBlocks
     .filter(b => b.date === dateStr || b.recurring)
     .map(b => ({ title: b.title, area: 'family', type: 'family' }));
+  // From local events (app-created)
+  const localEvents = (state.events || [])
+    .filter(e => e.date === dateStr)
+    .map(e => ({ title: e.title, area: e.area || 'personal', type: 'event', source: 'app', startTime: e.startTime, endTime: e.endTime }));
   // From Google Calendar
   const googleEvents = (state.googleCalendarEvents || [])
     .filter(e => e.date === dateStr)
@@ -1663,7 +2009,7 @@ function getEventsForDate(dateStr) {
   const outlookEvents = (state.outlookCalendarEvents || [])
     .filter(e => e.date === dateStr)
     .map(e => ({ title: e.title, area: 'career', type: 'outlook', source: 'outlook', startTime: e.startTime, endTime: e.endTime }));
-  return [...taskEvents, ...familyEvents, ...googleEvents, ...outlookEvents];
+  return [...taskEvents, ...familyEvents, ...localEvents, ...googleEvents, ...outlookEvents];
 }
 
 function openDayModal(key, d) {
@@ -1674,22 +2020,25 @@ function openDayModal(key, d) {
     sub: 'Events and tasks for this day',
     fields: [
       { name: 'title', label: 'Add Event / Time Block', placeholder: 'e.g. Deep work: career project' },
-      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['health', 'Health'], ['finance', 'Finance']] },
+      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['finance', 'Finance']] },
       { name: 'startTime', label: 'Start Time', type: 'time', placeholder: '09:00' },
       { name: 'endTime', label: 'End Time', type: 'time', placeholder: '10:00' }
     ],
     submit: 'Add to Calendar',
     customBody: events.length ? `<div style="margin-bottom:16px">
-      ${events.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span class="area-dot ${e.area}"></span> ${esc(e.title)}
-      </div>`).join('')}
+      ${events.map(e => {
+        const icon = e.type === 'task' ? '☑️' : e.type === 'family' ? '👨‍👩‍👧' : '📅';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>${icon}</span> <span class="area-dot ${e.area}"></span> ${esc(e.title)}
+        </div>`;
+      }).join('')}
     </div>` : '',
     onSubmit: async v => {
       if (!v.title) return;
       const id = uid();
-      const data = { id, title: v.title, date: key, area: v.area, startTime: v.startTime, endTime: v.endTime, type: 'block', createdAt: Date.now() };
-      state.familyBlocks.push(data);
-      await saveDoc('familyBlocks', id, data);
+      const data = { id, title: v.title, date: key, area: v.area, startTime: v.startTime, endTime: v.endTime, source: 'app', createdAt: Date.now() };
+      state.events.push(data);
+      await saveDoc('events', id, data);
       renderCalendar();
     }
   });
@@ -1704,15 +2053,15 @@ function openAddEventModal() {
       { name: 'date', label: 'Date', type: 'date', required: true },
       { name: 'startTime', label: 'Start Time', type: 'time' },
       { name: 'endTime', label: 'End Time', type: 'time' },
-      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['health', 'Health'], ['finance', 'Finance']] },
+      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['finance', 'Finance']] },
       { name: 'recurring', label: 'Recurring Daily?', type: 'select', options: [['false', 'No'], ['true', 'Yes — every day']] }
     ],
     submit: 'Add Event',
     onSubmit: async v => {
       const id = uid();
-      const data = { id, title: v.title, date: v.date, startTime: v.startTime, endTime: v.endTime, area: v.area, recurring: v.recurring === 'true', type: 'block', createdAt: Date.now() };
-      state.familyBlocks.push(data);
-      await saveDoc('familyBlocks', id, data);
+      const data = { id, title: v.title, date: v.date, startTime: v.startTime, endTime: v.endTime, area: v.area, recurring: v.recurring === 'true', source: 'app', createdAt: Date.now() };
+      state.events.push(data);
+      await saveDoc('events', id, data);
       renderCalendar();
       if (currentView === 'family') renderFamily();
     }
@@ -1725,59 +2074,112 @@ function openAddEventModal() {
 document.getElementById('add-goal-btn').addEventListener('click', openAddGoalModal);
 
 function renderGoals() {
-  const grid = document.getElementById('goals-grid');
+  const el = document.getElementById('goals-grid');
   if (!state.goals.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎯</div><p>No goals yet</p><small>Long-term goals fuel your daily focus</small></div>`;
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎯</div><p>No goals yet</p><small>Long-term goals fuel your daily focus</small></div>`;
     return;
   }
-  grid.innerHTML = state.goals.map(g => `
-    <div class="goal-card">
-      <div class="goal-card-header">
-        <div class="goal-card-title">${esc(g.title)}</div>
-        <span class="goal-area-badge ${g.area}">${g.area || 'general'}</span>
-      </div>
-      <div class="prog-track"><div class="prog-fill ${g.area}-fill" style="width:${g.progress || 0}%"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-top:4px">
-        <span>${g.progress || 0}% complete</span>
-        ${g.deadline ? `<span>Due ${g.deadline}</span>` : ''}
-      </div>
-      ${(g.milestones || []).length ? `
-      <div class="goal-milestones">
-        ${g.milestones.map(m => `<div class="milestone-item">
-          <button class="milestone-check${m.done ? ' done' : ''}" onclick="toggleMilestone('${g.id}','${m.id}')">${m.done ? '✓' : ''}</button>
-          <span style="${m.done ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${esc(m.text)}</span>
-        </div>`).join('')}
-      </div>` : ''}
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <div class="stepper" style="gap:4px">
-          <button onclick="adjustGoalProgress('${g.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">−</button>
-          <button onclick="adjustGoalProgress('${g.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">+</button>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="deleteGoal('${g.id}')">Delete</button>
-      </div>
+  const groups = {};
+  state.goals.forEach(g => {
+    let rootName = 'Non catégorisé';
+    if (g.categoryId) {
+      const root = getCategoryRoot(g.categoryId);
+      if (root) rootName = (root.icon || '') + ' ' + root.name;
+    }
+    if (!groups[rootName]) groups[rootName] = [];
+    groups[rootName].push(g);
+  });
+  const rootOrder = ['Family', 'Growth', 'Career', 'Finance', 'Non catégorisé'];
+  const sorted = Object.keys(groups).sort((a, b) => {
+    const ia = rootOrder.findIndex(r => a.includes(r));
+    const ib = rootOrder.findIndex(r => b.includes(r));
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  el.innerHTML = sorted.map(rootName => `
+    <div class="tgh-cat-group">
+      <div class="tgh-cat-group-title">${rootName} (${groups[rootName].length})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${groups[rootName].map(g => `
+        <div class="goal-card">
+          <div class="goal-card-header" onclick="openAddGoalModal(state.goals.find(x=>x.id==='${g.id}'))" style="cursor:pointer">
+            <div class="goal-card-title">${esc(g.title)}</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${g.isSprintObjective ? `<span class="cat-module-tag">🚀 Sprint</span>` : ''}
+            </div>
+          </div>
+          <div class="prog-track"><div class="prog-fill" style="width:${g.progress || 0}%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-top:4px">
+            <span>${g.progress || 0}% complete</span>
+            ${g.deadline ? `<span>Due ${g.deadline}</span>` : ''}
+          </div>
+          ${(g.milestones || []).length ? `
+          <div class="goal-milestones">
+            ${g.milestones.map(m => `<div class="milestone-item">
+              <button class="milestone-check${m.done ? ' done' : ''}" onclick="toggleMilestone('${g.id}','${m.id}')">${m.done ? '✓' : ''}</button>
+              <span style="${m.done ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${esc(m.text)}</span>
+            </div>`).join('')}
+          </div>` : ''}
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <div class="stepper" style="gap:4px">
+              <button onclick="adjustGoalProgress('${g.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">−</button>
+              <button onclick="adjustGoalProgress('${g.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px">+</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="deleteGoal('${g.id}')">Delete</button>
+          </div>
+        </div>`).join('')}</div>
     </div>`).join('');
 }
 
-function openAddGoalModal() {
+function openAddGoalModal(item = null) {
+  const editing = !!item;
+  const ms = editing ? (item.milestones || []) : [];
+  const isSprint = editing ? (item.isSprintObjective || false) : false;
   openModal({
-    title: 'New Goal',
-    sub: 'A long-term outcome worth working towards',
+    title: editing ? 'Edit Goal' : 'New Goal',
+    sub: editing ? 'Update goal details' : 'A long-term outcome worth working towards',
     fields: [
-      { name: 'title', label: 'Goal Title', placeholder: 'e.g. Get promoted to senior role', required: true },
-      { name: 'area', label: 'Life Area', type: 'select', options: [['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['health', 'Health'], ['finance', 'Finance']] },
-      { name: 'deadline', label: 'Target Date', type: 'date' },
-      { name: 'm1', label: 'Milestone 1', placeholder: 'e.g. Complete training course' },
-      { name: 'm2', label: 'Milestone 2', placeholder: 'e.g. Take on leadership project' },
-      { name: 'm3', label: 'Milestone 3', placeholder: 'e.g. Request performance review' }
+      { name: 'title', label: 'Goal Title', placeholder: 'e.g. Get promoted to senior role', required: true, value: editing ? item.title : '' },
+      { name: 'area', label: 'Life Area', type: 'select', value: editing ? (item.area || '') : '', options: [['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['finance', 'Finance']] },
+      { name: 'categoryId', label: 'Category', type: 'select', value: editing ? (item.categoryId || '') : (activeCategoryId || ''), options: buildCategoryOptions() },
+      { name: 'deadline', label: 'Target Date', type: 'date', value: editing ? (item.deadline || '') : '' },
+      { name: 'isSprintObjective', label: 'Sprint Objective?', type: 'select', value: isSprint ? 'true' : 'false', options: [['false', 'No'], ['true', 'Yes — track in Sprint view']] },
+      { name: 'w1', label: 'Weekly Action 1', placeholder: 'For sprint objectives', value: editing ? ((item.weeklyActions || [])[0] || '') : '' },
+      { name: 'w2', label: 'Weekly Action 2', value: editing ? ((item.weeklyActions || [])[1] || '') : '' },
+      { name: 'w3', label: 'Weekly Action 3', value: editing ? ((item.weeklyActions || [])[2] || '') : '' },
+      { name: 'm1', label: 'Milestone 1', placeholder: 'e.g. Complete training course', value: ms[0] ? ms[0].text : '' },
+      { name: 'm2', label: 'Milestone 2', placeholder: 'e.g. Take on leadership project', value: ms[1] ? ms[1].text : '' },
+      { name: 'm3', label: 'Milestone 3', placeholder: 'e.g. Request performance review', value: ms[2] ? ms[2].text : '' }
     ],
-    submit: 'Add Goal',
+    submit: editing ? 'Save Changes' : 'Add Goal',
     onSubmit: async v => {
-      const milestones = [v.m1, v.m2, v.m3].filter(Boolean).map(t => ({ id: uid(), text: t, done: false }));
-      const id = uid();
-      const data = { id, title: v.title, area: v.area, deadline: v.deadline || null, milestones, progress: 0, createdAt: Date.now() };
-      state.goals.unshift(data);
-      await saveDoc('goals', id, data);
+      const newMilestones = [v.m1, v.m2, v.m3].filter(Boolean).map((t, i) => {
+        if (editing && ms[i]) return { ...ms[i], text: t };
+        return { id: uid(), text: t, done: false };
+      });
+      const weeklyActions = [v.w1, v.w2, v.w3].filter(Boolean);
+      const makeSprint = v.isSprintObjective === 'true';
+      const quarterLabel = getQuarterLabel();
+      if (editing) {
+        Object.assign(item, {
+          title: v.title, area: v.area, deadline: v.deadline || null,
+          milestones: newMilestones, categoryId: v.categoryId || null,
+          isSprintObjective: makeSprint, sprintQuarter: makeSprint ? quarterLabel : null,
+          weeklyActions
+        });
+        await saveDoc('goals', item.id, item);
+      } else {
+        const id = uid();
+        const data = {
+          id, title: v.title, area: v.area, deadline: v.deadline || null,
+          milestones: newMilestones, progress: 0, categoryId: v.categoryId || null,
+          isSprintObjective: makeSprint, sprintQuarter: makeSprint ? quarterLabel : null,
+          weeklyActions, createdAt: Date.now()
+        };
+        state.goals.unshift(data);
+        await saveDoc('goals', id, data);
+      }
       renderGoals();
+      if (currentView === 'category' && activeCategoryId) renderCategoryContent();
+      if (currentView === 'sprint') renderSprint();
     }
   });
 }
@@ -1813,22 +2215,244 @@ async function toggleMilestone(goalId, milestoneId) {
 // ═══════════════════════════════════════════════════════════════
 
 // Tab switching for goals/habits
-document.getElementById('goals-tab').addEventListener('click', () => {
-  document.getElementById('goals-panel').style.display = 'block';
-  document.getElementById('habits-panel').style.display = 'none';
-  document.getElementById('goals-tab').classList.add('active');
-  document.getElementById('habits-tab').classList.remove('active');
-  renderGoals();
-});
-document.getElementById('habits-tab').addEventListener('click', () => {
-  document.getElementById('goals-panel').style.display = 'none';
-  document.getElementById('habits-panel').style.display = 'block';
-  document.getElementById('habits-tab').classList.add('active');
-  document.getElementById('goals-tab').classList.remove('active');
-  renderHabits();
-});
+function renderSuiviTabBar() {
+  const bar = document.getElementById('suivi-tab-bar');
+  if (!bar) return;
+  const tabs = state.settings.suiviTabs && state.settings.suiviTabs.length ? state.settings.suiviTabs : [];
+  if (!window._suiviActiveTab && tabs.length) window._suiviActiveTab = tabs[0].id;
+  const activeId = window._suiviActiveTab;
+  const typeUsed = new Set(tabs.map(t => t.type));
+  let html = tabs.map(t => `<button class="view-tab${t.id === activeId ? ' active' : ''}" data-suivi-tab="${t.id}">${esc(t.label)}</button>`).join('');
+  const available = [];
+  if (!typeUsed.has('tasks')) available.push(['tasks', '☑️ Tasks']);
+  if (!typeUsed.has('goals')) available.push(['goals', '🎯 Goals']);
+  if (!typeUsed.has('habits')) available.push(['habits', '🔥 Habits']);
+  if (!typeUsed.has('list')) available.push(['list', '📋 Liste simple']);
+  if (available.length) {
+    const escList = available.map(([t, l]) => `['${t}','${l}']`).join(',');
+    html += `<button class="view-tab btn-ghost" onclick="openAddSuiviTabModal([${escList}])" style="border:1px dashed var(--border);color:var(--text-muted)">+ Ajouter un onglet</button>`;
+  }
+  bar.innerHTML = html;
+
+  // Bind click handlers
+  bar.querySelectorAll('[data-suivi-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window._suiviActiveTab = btn.dataset.suiviTab;
+      renderSuiviTabBar();
+      renderSuiviActiveTab();
+    });
+  });
+}
+
+function renderSuiviActiveTab() {
+  const tabs = state.settings.suiviTabs || [];
+  const activeTab = tabs.find(t => t.id === window._suiviActiveTab);
+  // Hide all panels
+  ['tgh-tasks-panel', 'goals-panel', 'habits-panel', 'suivi-list-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  if (!activeTab) return;
+  switch (activeTab.type) {
+    case 'tasks':
+      document.getElementById('tgh-tasks-panel').style.display = '';
+      renderTghTasks();
+      break;
+    case 'goals':
+      document.getElementById('goals-panel').style.display = '';
+      renderGoals();
+      break;
+    case 'habits':
+      document.getElementById('habits-panel').style.display = '';
+      renderHabits();
+      break;
+    case 'list':
+      document.getElementById('suivi-list-panel').style.display = '';
+      renderSuiviList(activeTab);
+      break;
+  }
+}
+
+function renderSuiviList(tab) {
+  const el = document.getElementById('suivi-list-content');
+  if (!el) return;
+  const items = state.checklistItems.filter(i => !i.categoryId && i.tabId === tab.id);
+  let html = `<div class="section-header"><div class="section-title">📋 ${esc(tab.label)}</div></div>`;
+  html += `<div style="display:flex;gap:6px;margin-bottom:12px">
+    <input type="text" id="suivi-checklist-input-${tab.id}" placeholder="Nouvel élément..." style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text)">
+    <button class="btn btn-sm" onclick="addSuiviChecklistItem('${tab.id}')">+</button>
+  </div>`;
+  if (items.length) {
+    html += items.map(i => `
+      <div class="cat-page-task${i.done ? ' done' : ''}" style="max-width:500px">
+        <button class="task-check-sm" onclick="toggleChecklistItem('${i.id}')">${i.done ? '✓' : ''}</button>
+        <span class="cat-page-task-title">${esc(i.text)}</span>
+        <button class="btn btn-ghost btn-xs" onclick="deleteChecklistItem('${i.id}')" style="margin-left:auto">×</button>
+      </div>`).join('');
+  } else {
+    html += '<div class="empty-state" style="padding:12px 0"><p>No items yet</p></div>';
+  }
+  el.innerHTML = html;
+}
+
+async function addSuiviChecklistItem(tabId) {
+  const input = document.getElementById('suivi-checklist-input-' + tabId);
+  if (!input || !input.value.trim()) return;
+  const id = uid();
+  const data = { id, categoryId: null, tabId, text: input.value.trim(), done: false, createdAt: Date.now() };
+  state.checklistItems.push(data);
+  await saveDoc('checklistItems', id, data);
+  renderSuiviActiveTab();
+}
+
+function openAddSuiviTabModal(availableTypes) {
+  openModal({
+    title: 'Ajouter un onglet au Suivi',
+    fields: [
+      { name: 'type', label: 'Type d\'onglet', type: 'select', options: availableTypes },
+      { name: 'label', label: 'Label (optionnel)', placeholder: 'e.g. My List' }
+    ],
+    submit: 'Add',
+    onSubmit: async v => {
+      if (!state.settings.suiviTabs) state.settings.suiviTabs = [];
+      const tab = { id: uid(), type: v.type, label: v.label || ({ tasks: '☑️ Tasks', goals: '🎯 Goals', habits: '🔥 Habits', list: '📋 Liste' })[v.type] || v.type };
+      state.settings.suiviTabs.push(tab);
+      await saveProfile({ suiviTabs: state.settings.suiviTabs });
+      window._suiviActiveTab = tab.id;
+      renderSuiviTabBar();
+      renderSuiviActiveTab();
+    }
+  });
+}
+
+function removeSuiviTab(tabId) {
+  const tabs = state.settings.suiviTabs || [];
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab) return;
+  openModal({
+    title: 'Remove tab?',
+    sub: `"${esc(tab.label)}" will be hidden. Content will reappear if re-added.`,
+    fields: [],
+    submit: 'Remove',
+    onSubmit: async () => {
+      state.settings.suiviTabs = tabs.filter(t => t.id !== tabId);
+      await saveProfile({ suiviTabs: state.settings.suiviTabs });
+      if (window._suiviActiveTab === tabId) window._suiviActiveTab = state.settings.suiviTabs.length ? state.settings.suiviTabs[0].id : null;
+      renderSuiviTabBar();
+      renderSuiviActiveTab();
+    }
+  });
+}
 
 document.getElementById('add-habit-btn').addEventListener('click', openAddHabitModal);
+
+// ─── TGH tasks tab ──────────────────────────────────────────
+let tghTaskTab = 'today', tghTaskAreaFilter = 'all', tghTaskSearch = '';
+
+document.getElementById('tgh-add-task-btn').addEventListener('click', () => openAddTaskModal());
+
+document.getElementById('tgh-task-search').addEventListener('input', e => {
+  tghTaskSearch = e.target.value.toLowerCase();
+  renderTghTasks();
+});
+
+document.querySelectorAll('#tgh-tasks-panel .view-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#tgh-tasks-panel .view-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tghTaskTab = btn.dataset.tab;
+    renderTghTasks();
+  });
+});
+
+document.querySelectorAll('#tgh-tasks-area-filter .area-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#tgh-tasks-area-filter .area-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tghTaskAreaFilter = btn.dataset.area;
+    renderTghTasks();
+  });
+});
+
+function renderTghTasks() {
+  const today = dk();
+  const allTasks = [...state.tasks];
+  const undatedTasks = allTasks.filter(t => !t.dueDate && !t.done);
+  let tasks = allTasks.filter(t => t.dueDate);
+
+  if (tghTaskTab === 'today') tasks = tasks.filter(t => !t.done && t.dueDate <= today);
+  if (tghTaskTab === 'upcoming') tasks = tasks.filter(t => !t.done && t.dueDate > today);
+  if (tghTaskAreaFilter !== 'all') tasks = tasks.filter(t => t.area === tghTaskAreaFilter);
+  if (tghTaskSearch) tasks = tasks.filter(t => t.title.toLowerCase().includes(tghTaskSearch));
+
+  const el = document.getElementById('tgh-task-list');
+  if (!tasks.length && !undatedTasks.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">☑️</div><p>No tasks here.</p><small>Add a task or adjust filters.</small></div>`;
+    return;
+  }
+
+  tasks.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  function tghTaskCardHtml(t) {
+    const overdue = !t.done && t.dueDate && t.dueDate < today;
+    return `<div class="task-card${t.done ? ' done' : ''}" data-id="${t.id}">
+      <button class="task-check" onclick="toggleTask('${t.id}'); renderTghTasks()" aria-label="Toggle task">
+        <span class="task-check-mark">✓</span>
+      </button>
+      <div class="task-body" onclick="openAddTaskModal('', null, state.tasks.find(x=>x.id==='${t.id}'))" style="cursor:pointer">
+        <div class="task-title">${esc(t.title)}</div>
+        <div class="task-meta">
+          ${t.dueDate ? `<span class="task-due${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}${relativeDay(t.dueDate)}</span>` : ''}
+          ${t.duration ? `<span class="task-duration">⏱ ${t.duration}m</span>` : ''}
+          ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+        </div>
+      </div>
+      <div class="task-actions">
+        ${!t.done ? `<button class="task-timer-btn${t.timerRunning ? ' running' : ''}" onclick="startTaskTimer('${t.id}')" title="Start timer">▶</button>` : ''}
+        <button class="task-del-btn" onclick="deleteTask('${t.id}'); renderTghTasks()" aria-label="Delete">×</button>
+      </div>
+    </div>`;
+  }
+
+  // Group dated tasks by root category
+  const groups = {};
+  tasks.forEach(t => {
+    let rootName = 'Non catégorisé';
+    if (t.categoryId) {
+      const root = getCategoryRoot(t.categoryId);
+      if (root) rootName = (root.icon || '') + ' ' + root.name;
+      else rootName = 'Non catégorisé';
+    }
+    if (!groups[rootName]) groups[rootName] = [];
+    groups[rootName].push(t);
+  });
+
+  const rootOrder = ['Family', 'Growth', 'Career', 'Finance', 'Non catégorisé'];
+  const sortedGroups = Object.keys(groups).sort((a, b) => {
+    const ia = rootOrder.findIndex(r => a.includes(r));
+    const ib = rootOrder.findIndex(r => b.includes(r));
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
+  let html = sortedGroups.map(rootName => `
+    <div class="tgh-cat-group">
+      <div class="tgh-cat-group-title">${rootName} (${groups[rootName].length})</div>
+      ${groups[rootName].map(t => tghTaskCardHtml(t)).join('')}
+    </div>`).join('');
+
+  if (undatedTasks.length) {
+    html += `<div class="task-section-nodate" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">📅 Sans date — ajoute une date pour voir cette tâche dans le calendrier</div>
+      ${undatedTasks.map(t => tghTaskCardHtml(t)).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
 
 function renderHabits() {
   const el = document.getElementById('habits-list');
@@ -1836,26 +2460,44 @@ function renderHabits() {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔥</div><p>No habits yet</p><small>Small daily habits compound into big results</small></div>`;
     return;
   }
-  el.innerHTML = state.habits.map(h => {
-    const streak = calcStreak(h.checkIns || []);
-    const checkIns = h.checkIns || [];
-    return `<div class="habit-section">
-      <div class="habit-header">
-        <div class="habit-name">${esc(h.name)}</div>
-        ${streak > 0 ? `<div class="streak-badge">🔥 ${streak} day streak</div>` : ''}
-        <span class="goal-area-badge ${h.area}">${h.area || 'general'}</span>
-        <button onclick="deleteHabit('${h.id}')" style="color:var(--text-muted);font-size:16px;padding:4px">×</button>
-      </div>
-      <div class="heatmap-wrap">
-        <div class="heatmap-grid" id="heatmap-${h.id}"></div>
-      </div>
-      <div style="margin-top:8px; display:flex; gap:8px; align-items:center">
-        <span style="font-size:12px; color:var(--text-muted)">${checkIns.length} total check-ins</span>
-      </div>
-    </div>`;
-  }).join('');
+  const groups = {};
+  state.habits.forEach(h => {
+    let rootName = 'Non catégorisé';
+    if (h.categoryId) {
+      const root = getCategoryRoot(h.categoryId);
+      if (root) rootName = (root.icon || '') + ' ' + root.name;
+    }
+    if (!groups[rootName]) groups[rootName] = [];
+    groups[rootName].push(h);
+  });
+  const rootOrder = ['Family', 'Growth', 'Career', 'Finance', 'Non catégorisé'];
+  const sorted = Object.keys(groups).sort((a, b) => {
+    const ia = rootOrder.findIndex(r => a.includes(r));
+    const ib = rootOrder.findIndex(r => b.includes(r));
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  el.innerHTML = sorted.map(rootName => `
+    <div class="tgh-cat-group">
+      <div class="tgh-cat-group-title">${rootName} (${groups[rootName].length})</div>
+      ${groups[rootName].map(h => {
+        const streak = calcStreak(h.checkIns || []);
+        const checkIns = h.checkIns || [];
+        return `<div class="habit-section">
+          <div class="habit-header">
+            <div class="habit-name" onclick="openAddHabitModal(state.habits.find(x=>x.id==='${h.id}'))" style="cursor:pointer">${esc(h.name)}</div>
+            ${streak > 0 ? `<div class="streak-badge">🔥 ${streak} day streak</div>` : ''}
+            <button onclick="deleteHabit('${h.id}')" style="color:var(--text-muted);font-size:16px;padding:4px">×</button>
+          </div>
+          <div class="heatmap-wrap">
+            <div class="heatmap-grid" id="heatmap-${h.id}"></div>
+          </div>
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center">
+            <span style="font-size:12px; color:var(--text-muted)">${checkIns.length} total check-ins</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
 
-  // Render heatmaps
   state.habits.forEach(h => {
     const grid = document.getElementById(`heatmap-${h.id}`);
     if (grid) renderHeatmap(grid, h.checkIns || []);
@@ -1898,28 +2540,36 @@ async function toggleHabitToday(id) {
     habit.checkIns = habit.checkIns.filter(c => c !== today);
   } else {
     habit.checkIns.push(today);
-    await logWin(`Habit: ${habit.name} ✓`);
+    await logWin(`Habit: ${habit.name} ✓`, habit.categoryId);
   }
   await saveDoc('habits', id, { checkIns: habit.checkIns });
   renderDashHabits();
   renderDashStats();
 }
 
-function openAddHabitModal() {
+function openAddHabitModal(item = null) {
+  const editing = !!item;
   openModal({
-    title: 'New Habit',
-    sub: 'A daily practice that moves you forward',
+    title: editing ? 'Edit Habit' : 'New Habit',
+    sub: editing ? 'Update habit details' : 'A daily practice that moves you forward',
     fields: [
-      { name: 'name', label: 'Habit Name', placeholder: 'e.g. 30-min walk', required: true },
-      { name: 'area', label: 'Life Area', type: 'select', options: [['health', 'Health'], ['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['finance', 'Finance']] }
+      { name: 'name', label: 'Habit Name', placeholder: 'e.g. 30-min walk', required: true, value: editing ? item.name : '' },
+      { name: 'area', label: 'Life Area', type: 'select', value: editing ? (item.area || '') : '', options: [['family', 'Family'], ['career', 'Career'], ['growth', 'Growth'], ['finance', 'Finance']] },
+      { name: 'categoryId', label: 'Category', type: 'select', value: editing ? (item.categoryId || '') : (activeCategoryId || ''), options: buildCategoryOptions() }
     ],
-    submit: 'Add Habit',
+    submit: editing ? 'Save Changes' : 'Add Habit',
     onSubmit: async v => {
-      const id = uid();
-      const data = { id, name: v.name, area: v.area, checkIns: [], createdAt: Date.now() };
-      state.habits.unshift(data);
-      await saveDoc('habits', id, data);
+      if (editing) {
+        Object.assign(item, { name: v.name, area: v.area, categoryId: v.categoryId || null });
+        await saveDoc('habits', item.id, item);
+      } else {
+        const id = uid();
+        const data = { id, name: v.name, area: v.area, categoryId: v.categoryId || null, checkIns: [], createdAt: Date.now() };
+        state.habits.unshift(data);
+        await saveDoc('habits', id, data);
+      }
       renderHabits();
+      if (currentView === 'category' && activeCategoryId) renderCategoryContent();
       if (currentView === 'dashboard') renderDashHabits();
     }
   });
@@ -1948,9 +2598,24 @@ function renderJournal() {
   document.getElementById('journal-date-display').textContent = label;
 
   const entry = state.journal[key] || {};
-  document.getElementById('journal-morning').value = entry.morningFocus || '';
-  document.getElementById('journal-free').value = entry.freeText || '';
-  document.getElementById('journal-evening').value = entry.eveningWell || '';
+
+  // Backward compat: old format stored a plain string in `text` or individual fields
+  let morningVal = '', afternoonVal = '';
+  if (entry.morning !== undefined) {
+    morningVal = entry.morning;
+    afternoonVal = entry.afternoon || '';
+  } else if (typeof entry === 'string') {
+    morningVal = entry;
+  } else if (entry.text) {
+    morningVal = entry.text;
+  } else {
+    // Legacy fields migration
+    morningVal = [entry.morningFocus, entry.freeText].filter(Boolean).join('\n\n');
+    afternoonVal = entry.eveningWell || '';
+  }
+
+  document.getElementById('journal-morning').value = morningVal;
+  document.getElementById('journal-afternoon').value = afternoonVal;
 
   if (entry.morningMood) {
     document.getElementById('journal-mood-display').textContent = entry.morningMood;
@@ -1961,20 +2626,20 @@ function renderJournal() {
   }
 }
 
-document.getElementById('journal-save-btn').addEventListener('click', async () => {
+async function saveJournalField(field) {
   const key = dk(journalDate);
   const existing = state.journal[key] || { id: key, date: key, createdAt: Date.now() };
-  const updated = {
-    ...existing,
-    morningFocus: document.getElementById('journal-morning').value,
-    freeText: document.getElementById('journal-free').value,
-    eveningWell: document.getElementById('journal-evening').value,
-    updatedAt: Date.now()
-  };
-  state.journal[key] = updated;
-  await saveDoc('journal', key, updated);
-  toast('Journal saved ✓', 'success');
-});
+  const val = document.getElementById(`journal-${field}`).value;
+  existing[field] = val;
+  existing.updatedAt = Date.now();
+  state.journal[key] = existing;
+  await saveDoc('journal', key, existing);
+  const statusEl = document.getElementById(`journal-${field}-status`);
+  if (statusEl) { statusEl.textContent = 'Saved ✓'; setTimeout(() => { statusEl.textContent = ''; }, 1500); }
+}
+
+document.getElementById('journal-morning').addEventListener('blur', () => saveJournalField('morning'));
+document.getElementById('journal-afternoon').addEventListener('blur', () => saveJournalField('afternoon'));
 
 // ═══════════════════════════════════════════════════════════════
 // FAMILY MODE
@@ -1984,6 +2649,8 @@ function renderFamily() {
   renderFamilyBlocks();
   renderBabyMilestones();
   renderFamilyScore();
+  renderRecipes();
+  renderMealPlan();
 }
 
 function renderBabyCountdown() {
@@ -2009,14 +2676,14 @@ function renderFamilyBlocks() {
     return;
   }
   el.innerHTML = blocks.map(b => `
-    <div class="family-block-item" style="margin-bottom:8px">
+    <div class="family-block-item" style="margin-bottom:8px; cursor:pointer" onclick="openEditFamilyBlock('${b.id}')">
       <div class="family-block-icon">🔒</div>
       <div class="family-block-info">
         <div class="family-block-title">${esc(b.title)}</div>
         <div class="family-block-time">${b.date || 'Daily'} · ${b.startTime || '—'} – ${b.endTime || '—'}</div>
       </div>
       <span class="protected-badge">PROTECTED</span>
-      <button onclick="deleteFamilyBlock('${b.id}')" style="color:var(--text-muted);margin-left:8px;font-size:16px">×</button>
+      <button onclick="event.stopPropagation(); deleteFamilyBlock('${b.id}')" style="color:var(--text-muted);margin-left:8px;font-size:16px">×</button>
     </div>`).join('');
 }
 
@@ -2047,6 +2714,28 @@ async function deleteFamilyBlock(id) {
   state.familyBlocks = state.familyBlocks.filter(b => b.id !== id);
   await deleteDoc('familyBlocks', id);
   renderFamily();
+}
+
+function openEditFamilyBlock(id) {
+  const block = state.familyBlocks.find(b => b.id === id);
+  if (!block) return;
+  openModal({
+    title: 'Edit Protected Time',
+    fields: [
+      { name: 'title', label: 'Block Title', required: true, value: block.title },
+      { name: 'date', label: 'Date', type: 'date', value: block.date || '' },
+      { name: 'startTime', label: 'Start Time', type: 'time', value: block.startTime || '' },
+      { name: 'endTime', label: 'End Time', type: 'time', value: block.endTime || '' },
+      { name: 'recurring', label: 'Recurring Daily?', type: 'select', value: block.recurring ? 'true' : 'false', options: [['false', 'No'], ['true', 'Yes']] }
+    ],
+    submit: 'Save Changes',
+    onSubmit: async v => {
+      Object.assign(block, { title: v.title, date: v.date, startTime: v.startTime, endTime: v.endTime, recurring: v.recurring === 'true' });
+      await saveDoc('familyBlocks', block.id, block);
+      renderFamily();
+      if (currentView === 'dashboard') renderDashFamilyBlocks();
+    }
+  });
 }
 
 function renderBabyMilestones() {
@@ -2096,80 +2785,165 @@ function renderFamilyScore() {
   `;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// LIFE AREAS
-// ═══════════════════════════════════════════════════════════════
-const AREA_COLORS = { family: '#FF6B6B', career: '#4ECDC4', growth: '#FFE66D', health: '#6BCB77', finance: '#4D96FF' };
-const AREA_EMOJIS = { family: '👨‍👩‍👧', career: '💼', growth: '🌱', health: '💪', finance: '💰' };
-const AREA_NAMES = { family: 'Family', career: 'Career', growth: 'Personal Growth', health: 'Health & Energy', finance: 'Finance' };
+// ─── FAMILY SUB-TABS ────────────────────────────────────────
+function initFamilyTabs() {
+  const tabs = [
+    { btn: 'family-tab-blocks', panel: 'family-panel-blocks' },
+    { btn: 'family-tab-baby', panel: 'family-panel-baby' },
+    { btn: 'family-tab-meals', panel: 'family-panel-meals' }
+  ];
+  tabs.forEach(({ btn, panel }) => {
+    document.getElementById(btn).addEventListener('click', () => {
+      tabs.forEach(t => {
+        document.getElementById(t.btn).classList.remove('active');
+        document.getElementById(t.panel).style.display = 'none';
+      });
+      document.getElementById(btn).classList.add('active');
+      document.getElementById(panel).style.display = '';
+    });
+  });
+}
+initFamilyTabs();
 
-let areasChartInstance = null;
-
-function renderAreas() {
-  const grid = document.getElementById('areas-grid');
-  const areas = ['family', 'career', 'growth', 'health', 'finance'];
-
-  grid.innerHTML = areas.map(a => {
-    const taskCount = state.tasks.filter(t => t.area === a).length;
-    const goalCount = state.goals.filter(g => g.area === a).length;
-    const score = calcAreaScore(a);
-    return `<div class="area-card ${a}" onclick="goTo('tasks'); setAreaFilter('${a}')">
-      <div class="area-card-emoji">${AREA_EMOJIS[a]}</div>
-      <div class="area-card-name">${AREA_NAMES[a]}</div>
-      <div class="area-card-count">${taskCount} tasks · ${goalCount} goals</div>
-      <div class="area-score-row">
-        <div class="prog-track" style="flex:1"><div class="prog-fill ${a}-fill" style="width:${score}%"></div></div>
-        <div class="area-score-label">${score}%</div>
-      </div>
+// ─── RECIPES ────────────────────────────────────────────────
+function renderRecipes() {
+  const el = document.getElementById('recipes-list');
+  if (!state.recipes.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:20px 0"><p>No recipes yet.</p><small>Add your first recipe to start planning meals.</small></div>`;
+    return;
+  }
+  el.innerHTML = state.recipes.map(r => {
+    const ingCount = (r.ingredients || []).length;
+    return `<div class="recipe-card" onclick="openRecipeModal(state.recipes.find(x=>x.id==='${r.id}'))" style="cursor:pointer">
+      <div class="recipe-name">${esc(r.name)}</div>
+      <div class="recipe-meta">${ingCount} ingredient${ingCount !== 1 ? 's' : ''}</div>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); deleteRecipe('${r.id}')" style="margin-left:auto">✕</button>
     </div>`;
   }).join('');
+}
 
-  // Balance chart
-  const scores = areas.map(a => calcAreaScore(a));
-  const ctx = document.getElementById('areas-chart');
-  if (areasChartInstance) areasChartInstance.destroy();
-  areasChartInstance = new Chart(ctx, {
-    type: 'radar',
-    data: {
-      labels: areas.map(a => AREA_NAMES[a]),
-      datasets: [{
-        label: 'Focus Score',
-        data: scores,
-        backgroundColor: 'rgba(108,99,255,.15)',
-        borderColor: '#6C63FF',
-        borderWidth: 2,
-        pointBackgroundColor: '#6C63FF'
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        r: {
-          beginAtZero: true, max: 100,
-          ticks: { display: false },
-          grid: { color: 'rgba(255,255,255,.08)' },
-          pointLabels: { color: 'rgba(255,255,255,.6)', font: { size: 12, family: 'Inter' } }
-        }
+function openRecipeModal(item = null) {
+  const editing = !!item;
+  openModal({
+    title: editing ? 'Edit Recipe' : 'New Recipe',
+    sub: 'One ingredient per line: name, amount, unit',
+    fields: [
+      { name: 'name', label: 'Recipe Name', required: true, placeholder: 'e.g. Pasta Bolognese', value: editing ? item.name : '' },
+      { name: 'ingredients', label: 'Ingredients (one per line)', type: 'textarea', placeholder: 'ground beef, 500, g\nonion, 1, piece\nolive oil, 2, tbsp', value: editing ? item.ingredients.map(i => `${i.name}, ${i.amount}, ${i.unit}`).join('\n') : '' }
+    ],
+    submit: editing ? 'Save Changes' : 'Add Recipe',
+    onSubmit: async v => {
+      const ingredients = v.ingredients.split('\n').filter(l => l.trim()).map(line => {
+        const parts = line.split(',').map(s => s.trim());
+        return { name: parts[0] || '', amount: parseFloat(parts[1]) || 0, unit: parts[2] || 'pcs' };
+      });
+      if (editing) {
+        Object.assign(item, { name: v.name, ingredients });
+        await saveDoc('recipes', item.id, item);
+      } else {
+        const id = uid();
+        const data = { id, name: v.name, ingredients, createdAt: Date.now() };
+        state.recipes.unshift(data);
+        await saveDoc('recipes', id, data);
       }
+      renderRecipes();
     }
   });
 }
 
-function calcAreaScore(area) {
-  const tasks = state.tasks.filter(t => t.area === area);
-  const done = tasks.filter(t => t.done).length;
-  const habits = state.habits.filter(h => h.area === area);
-  const habitScore = habits.length ? habits.reduce((sum, h) => sum + (calcStreak(h.checkIns || []) > 0 ? 1 : 0), 0) / habits.length * 50 : 0;
-  const taskScore = tasks.length ? (done / tasks.length) * 50 : 0;
-  return Math.round(taskScore + habitScore);
+async function deleteRecipe(id) {
+  if (!confirm('Delete this recipe?')) return;
+  state.recipes = state.recipes.filter(r => r.id !== id);
+  await deleteDoc('recipes', id);
+  renderRecipes();
 }
 
-function setAreaFilter(area) {
-  taskAreaFilter = area;
-  document.querySelectorAll('.area-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.area === area));
-  renderTasks();
+document.getElementById('add-recipe-btn').addEventListener('click', () => openRecipeModal());
+
+// ─── MEAL PLAN ──────────────────────────────────────────────
+const MEAL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const MEAL_DAY_LABELS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+const MEAL_SLOTS = ['midi', 'soir'];
+const MEAL_SLOT_LABELS = { midi: 'Lunch', soir: 'Dinner' };
+
+function renderMealPlan() {
+  const el = document.getElementById('meal-plan-list');
+  el.innerHTML = MEAL_DAYS.map(day => {
+    const dayMeals = MEAL_SLOTS.map(slot => {
+      const meal = state.mealPlan.find(m => m.day === day && m.repas === slot);
+      const recipe = meal ? state.recipes.find(r => r.id === meal.recipeId) : null;
+      return `<div class="meal-slot">
+        <span class="meal-slot-label">${MEAL_SLOT_LABELS[slot]}</span>
+        ${recipe ? `<span class="meal-slot-recipe" onclick="openMealPlanModal('${day}','${slot}')" style="cursor:pointer">${esc(recipe.name)}</span>` : `<button class="btn btn-ghost btn-sm" onclick="openMealPlanModal('${day}','${slot}')">+</button>`}
+      </div>`;
+    }).join('');
+    return `<div class="meal-day"><div class="meal-day-label">${MEAL_DAY_LABELS[day]}</div>${dayMeals}</div>`;
+  }).join('');
 }
+
+function openMealPlanModal(day, repas) {
+  const existing = state.mealPlan.find(m => m.day === day && m.repas === repas);
+  const options = state.recipes.map(r => [r.id, r.name]);
+  if (!options.length) {
+    toast('Add a recipe first before planning meals', 'info');
+    return;
+  }
+  openModal({
+    title: `${MEAL_DAY_LABELS[day]} — ${MEAL_SLOT_LABELS[repas]}`,
+    fields: [
+      { name: 'recipeId', label: 'Recipe', type: 'select', options, value: existing ? existing.recipeId : options[0][0] }
+    ],
+    submit: 'Save',
+    onSubmit: async v => {
+      if (existing) {
+        existing.recipeId = v.recipeId;
+        await saveDoc('mealPlan', existing.id, existing);
+      } else {
+        const id = uid();
+        const data = { id, day, recipeId: v.recipeId, repas, createdAt: Date.now() };
+        state.mealPlan.push(data);
+        await saveDoc('mealPlan', id, data);
+      }
+      renderMealPlan();
+    }
+  });
+}
+
+// ─── GROCERY LIST ───────────────────────────────────────────
+function generateGroceryList() {
+  const container = document.getElementById('grocery-list-container');
+  const el = document.getElementById('grocery-list');
+  const aggregated = {};
+
+  state.mealPlan.forEach(mp => {
+    const recipe = state.recipes.find(r => r.id === mp.recipeId);
+    if (!recipe) return;
+    (recipe.ingredients || []).forEach(ing => {
+      const key = `${ing.name.toLowerCase()}|${ing.unit.toLowerCase()}`;
+      if (!aggregated[key]) aggregated[key] = { name: ing.name, amount: 0, unit: ing.unit };
+      aggregated[key].amount += ing.amount;
+    });
+  });
+
+  const items = Object.values(aggregated).sort((a, b) => a.name.localeCompare(b.name));
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:20px 0"><p>No planned meals this week.</p></div>`;
+    container.style.display = '';
+    return;
+  }
+  el.innerHTML = `<div class="grocery-items">${items.map(i =>
+    `<div class="grocery-item"><span class="grocery-check" onclick="this.classList.toggle('done')"></span><span>${esc(i.name)}</span><span class="grocery-qty">${i.amount} ${i.unit}</span></div>`
+  ).join('')}</div>`;
+  container.style.display = '';
+  toast('Grocery list generated!', 'success');
+}
+
+document.getElementById('gen-grocery-btn').addEventListener('click', generateGroceryList);
+
+// ═══════════════════════════════════════════════════════════════
+// LIFE AREAS
+// ═══════════════════════════════════════════════════════════════
+const AREA_COLORS = { family: '#FF6B6B', career: '#4ECDC4', growth: '#FFE66D', finance: '#4D96FF' };
 
 // ═══════════════════════════════════════════════════════════════
 // TIME AUDIT
@@ -2186,6 +2960,28 @@ function renderTimeAudit() {
   document.getElementById('audit-estimated').textContent = totalEstimated > 0 ? formatMin(totalEstimated) : '—';
   document.getElementById('audit-actual').textContent = totalActual > 0 ? formatMin(totalActual) : '—';
   document.getElementById('audit-accuracy').textContent = totalEstimated > 0 ? `${accuracy}%` : '—';
+
+  // Today's entries by root category
+  const catGroups = {};
+  todayEntries.forEach(e => {
+    let rootName = 'Non catégorisé';
+    if (e.categoryId) {
+      const root = getCategoryRoot(e.categoryId);
+      if (root) rootName = (root.icon || '') + ' ' + root.name;
+    }
+    if (!catGroups[rootName]) catGroups[rootName] = { count: 0, actual: 0, estimated: 0 };
+    catGroups[rootName].count++;
+    catGroups[rootName].actual += e.actualMin || 0;
+    catGroups[rootName].estimated += e.estimatedMin || 0;
+  });
+  const catKeys = Object.keys(catGroups);
+  if (catKeys.length) {
+    document.getElementById('audit-cat-breakdown').style.display = '';
+    document.getElementById('audit-cat-breakdown').innerHTML = '<div class="card-label" style="margin-bottom:8px">Today by category</div>'
+      + catKeys.map(k => `<div class="audit-cat-row"><span>${k}</span><span>${formatMin(catGroups[k].actual)}</span></div>`).join('');
+  } else {
+    document.getElementById('audit-cat-breakdown').style.display = 'none';
+  }
 
   // Weekly chart
   const days = [], estData = [], actData = [];
@@ -2223,9 +3019,9 @@ function renderTimeAudit() {
 // ═══════════════════════════════════════════════════════════════
 // WINS LOG
 // ═══════════════════════════════════════════════════════════════
-async function logWin(text) {
+async function logWin(text, categoryId = null) {
   const id = uid();
-  const data = { id, text, createdAt: Date.now(), date: dk() };
+  const data = { id, text, categoryId, createdAt: Date.now(), date: dk() };
   state.wins.unshift(data);
   await saveDoc('wins', id, data);
   if (currentView === 'wins') renderWins();
@@ -2233,17 +3029,36 @@ async function logWin(text) {
 
 function renderWins() {
   const el = document.getElementById('wins-list');
-  const wins = state.wins.slice(0, 50);
-  if (!wins.length) {
+  if (!state.wins.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">🏆</div><p>No wins yet</p><small>Complete tasks and habits to log wins automatically</small></div>`;
     return;
   }
+  const groups = {};
+  state.wins.slice(0, 50).forEach(w => {
+    let rootName = 'Non catégorisé';
+    if (w.categoryId) {
+      const root = getCategoryRoot(w.categoryId);
+      if (root) rootName = (root.icon || '') + ' ' + root.name;
+    }
+    if (!groups[rootName]) groups[rootName] = [];
+    groups[rootName].push(w);
+  });
+  const rootOrder = ['Family', 'Growth', 'Career', 'Finance', 'Non catégorisé'];
+  const sorted = Object.keys(groups).sort((a, b) => {
+    const ia = rootOrder.findIndex(r => a.includes(r));
+    const ib = rootOrder.findIndex(r => b.includes(r));
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
   const trophies = ['🏆', '🥇', '🎯', '✅', '⭐', '💪', '🚀'];
-  el.innerHTML = wins.map((w, i) => `
-    <div class="win-item">
-      <div class="win-emoji">${trophies[i % trophies.length]}</div>
-      <div class="win-text">${esc(w.text)}</div>
-      <div class="win-time">${new Date(w.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${w.date}</div>
+  el.innerHTML = sorted.map(rootName => `
+    <div class="tgh-cat-group">
+      <div class="tgh-cat-group-title">${rootName} (${groups[rootName].length})</div>
+      ${groups[rootName].map((w, i) => `
+        <div class="win-item">
+          <div class="win-emoji">${trophies[i % trophies.length]}</div>
+          <div class="win-text">${esc(w.text)}</div>
+          <div class="win-time">${new Date(w.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${w.date}</div>
+        </div>`).join('')}
     </div>`).join('');
 }
 
@@ -2286,7 +3101,7 @@ function buildField(f) {
   if (f.type === 'textarea') {
     input = `<textarea id="${id}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
   } else if (f.type === 'select') {
-    input = `<select id="${id}">${(f.options || []).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select>`;
+    input = `<select id="${id}">${(f.options || []).map(([v, l]) => `<option value="${esc(v)}"${v === (f.value || '') ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   } else {
     input = `<input type="${f.type || 'text'}" id="${id}" placeholder="${esc(f.placeholder || '')}" value="${esc(f.value || '')}" ${f.required ? 'required' : ''}>`;
   }
@@ -2334,6 +3149,1873 @@ function checkEndOfDay() {
       setTimeout(() => openRitual('evening'), 2000);
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOBBIES
+// ═══════════════════════════════════════════════════════════════
+let currentHobbyId = null;
+
+function renderHobbies() {
+  showHobbiesList();
+  const el = document.getElementById('hobbies-list');
+  if (!state.habits.length && !state.hobbies.length) {
+    // show empty only for hobbies
+  }
+  if (!state.hobbies.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px 0"><div class="empty-icon">🎨</div><p>No hobbies yet</p><small>Add a hobby to start tracking your passions.</small></div>`;
+    return;
+  }
+  el.innerHTML = state.hobbies.map(h => {
+    const objCount = (h.objectives || []).length;
+    const avgProgress = objCount ? Math.round(h.objectives.reduce((s, o) => s + (o.progress || 0), 0) / objCount) : 0;
+    return `<div class="hobby-card" onclick="openHobbyDetail('${h.id}')" style="cursor:pointer">
+      <div class="hobby-card-name">${esc(h.name)}</div>
+      <div class="hobby-card-meta">${objCount} objective${objCount !== 1 ? 's' : ''} · ${avgProgress}% avg</div>
+      <div class="hobby-card-bar"><div class="hobby-card-bar-fill" style="width:${avgProgress}%"></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); deleteHobby('${h.id}')" style="margin-left:auto">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function showHobbiesList() {
+  document.getElementById('hobbies-list-view').style.display = '';
+  document.getElementById('hobby-detail-view').style.display = 'none';
+  currentHobbyId = null;
+}
+
+function openHobbyDetail(id) {
+  const hobby = state.hobbies.find(h => h.id === id);
+  if (!hobby) return;
+  currentHobbyId = id;
+  document.getElementById('hobbies-list-view').style.display = 'none';
+  document.getElementById('hobby-detail-view').style.display = '';
+  document.getElementById('hobby-detail-name').textContent = hobby.name;
+  renderHobbyObjectives(hobby);
+}
+
+function renderHobbyObjectives(hobby) {
+  const el = document.getElementById('hobby-objectives-list');
+  const objs = hobby.objectives || [];
+  if (!objs.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:30px 0"><p>No objectives yet.</p><small>Add objectives to track progress in this hobby.</small></div>`;
+    return;
+  }
+  el.innerHTML = objs.map(o => `
+    <div class="hobby-obj-card">
+      <div class="hobby-obj-header">
+        <div class="hobby-obj-title">${esc(o.title)}</div>
+        <span class="hobby-obj-pct">${o.progress || 0}%</span>
+        <button class="btn btn-ghost btn-sm" onclick="deleteHobbyObjective('${hobby.id}','${o.id}')" style="margin-left:8px">✕</button>
+      </div>
+      <div class="prog-track"><div class="prog-fill" style="width:${o.progress || 0}%"></div></div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="adjustHobbyObjective('${hobby.id}','${o.id}',-10)">−10</button>
+        <button class="btn btn-ghost btn-sm" onclick="adjustHobbyObjective('${hobby.id}','${o.id}',10)">+10</button>
+      </div>
+    </div>`).join('');
+}
+
+function openHobbyModal(item = null) {
+  const editing = !!item;
+  openModal({
+    title: editing ? 'Edit Hobby' : 'New Hobby',
+    fields: [
+      { name: 'name', label: 'Hobby Name', required: true, placeholder: 'e.g. Painting, Guitar, Cooking', value: editing ? item.name : '' }
+    ],
+    submit: editing ? 'Save Changes' : 'Add Hobby',
+    onSubmit: async v => {
+      if (editing) {
+        Object.assign(item, { name: v.name });
+        await saveDoc('hobbies', item.id, item);
+      } else {
+        const id = uid();
+        const data = { id, name: v.name, objectives: [], createdAt: Date.now() };
+        state.hobbies.unshift(data);
+        await saveDoc('hobbies', id, data);
+      }
+      renderHobbies();
+    }
+  });
+}
+
+async function deleteHobby(id) {
+  if (!confirm('Delete this hobby and all its objectives?')) return;
+  state.hobbies = state.hobbies.filter(h => h.id !== id);
+  await deleteDoc('hobbies', id);
+  renderHobbies();
+}
+
+function addHobbyObjective() {
+  const hobby = state.hobbies.find(h => h.id === currentHobbyId);
+  if (!hobby) return;
+  openModal({
+    title: 'Add Objective',
+    fields: [
+      { name: 'title', label: 'Objective', required: true, placeholder: 'e.g. Learn 5 songs' }
+    ],
+    submit: 'Add',
+    onSubmit: async v => {
+      const obj = { id: uid(), title: v.title, progress: 0 };
+      hobby.objectives = hobby.objectives || [];
+      hobby.objectives.push(obj);
+      await saveDoc('hobbies', hobby.id, hobby);
+      renderHobbyObjectives(hobby);
+    }
+  });
+}
+
+async function adjustHobbyObjective(hobbyId, objId, delta) {
+  const hobby = state.hobbies.find(h => h.id === hobbyId);
+  if (!hobby) return;
+  const obj = (hobby.objectives || []).find(o => o.id === objId);
+  if (!obj) return;
+  obj.progress = Math.max(0, Math.min(100, (obj.progress || 0) + delta));
+  await saveDoc('hobbies', hobby.id, hobby);
+  renderHobbyObjectives(hobby);
+}
+
+async function deleteHobbyObjective(hobbyId, objId) {
+  const hobby = state.hobbies.find(h => h.id === hobbyId);
+  if (!hobby) return;
+  hobby.objectives = (hobby.objectives || []).filter(o => o.id !== objId);
+  await saveDoc('hobbies', hobby.id, hobby);
+  renderHobbyObjectives(hobby);
+}
+
+document.getElementById('add-hobby-btn').addEventListener('click', () => openHobbyModal());
+document.getElementById('add-hobby-obj-btn').addEventListener('click', addHobbyObjective);
+
+// ═══════════════════════════════════════════════════════════════
+// CATEGORIES — Hierarchical tree system
+// ═══════════════════════════════════════════════════════════════
+let currentCategoryId = null; // null = root, otherwise shows that node's children + content
+
+// ─── Category helpers ─────────────────────────────────────────
+function getCategoryById(id) { return state.categories.find(c => c.id === id); }
+function getCategoryChildren(parentId) {
+  return state.categories.filter(c => c.parentId === parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+function getCategoryPath(id) {
+  const parts = [];
+  let cat = getCategoryById(id);
+  while (cat) { parts.unshift(cat.name); cat = cat.parentId ? getCategoryById(cat.parentId) : null; }
+  return parts;
+}
+function getCategoryLabel(id) { return getCategoryPath(id).join(' > '); }
+function getCategoryDepth(id) { return getCategoryPath(id).length; }
+function getCategoryRoot(id) {
+  let cat = getCategoryById(id);
+  while (cat && cat.parentId) cat = getCategoryById(cat.parentId);
+  return cat || null;
+}
+function buildCategoryOptions() {
+  const opts = [['', 'None']];
+  function walk(parentId, depth) {
+    const children = getCategoryChildren(parentId);
+    for (const c of children) {
+      const prefix = '\u00A0\u00A0'.repeat(depth);
+      opts.push([c.id, prefix + (c.icon ? c.icon + ' ' : '') + c.name]);
+      walk(c.id, depth + 1);
+    }
+  }
+  walk(null, 0);
+  return opts;
+}
+
+// ─── Sidebar category accordion ───────────────────────────────
+// Renders the dynamic category tree inside the sidebar (#sidebar-categories).
+// Each root category (parentId === null) is shown as a clickable node.
+// Children are shown/hidden based on expandedCategories set.
+// Clicking a label navigates to that category's content AND expands its children.
+// Clicking the chevron toggles expansion without navigating.
+function renderSidebarCategories() {
+  const el = document.getElementById('sidebar-categories');
+  if (!el) return;
+  const roots = getCategoryChildren(null);
+  if (!roots.length) {
+    el.innerHTML = `<div style="padding:4px 12px;font-size:12px;color:var(--text-muted)">No categories yet</div>`;
+    return;
+  }
+  el.innerHTML = `<span class="sidebar-section-label">Categories</span>` + roots.map(cat => buildSidebarNode(cat, 0)).join('');
+}
+
+// Builds one category node + its expandable children for the sidebar.
+// depth controls indentation (0 = root, 1 = first child, etc.)
+function buildSidebarNode(cat, depth) {
+  const children = getCategoryChildren(cat.id);
+  const isExpanded = expandedCategories.has(cat.id);
+  const isActive = activeCategoryId === cat.id;
+  // Indentation: 12px base + 16px per depth level
+  const pl = 12 + depth * 16;
+  // Color left-border if the category has a custom color
+  const colorBorder = cat.color ? `border-left:3px solid ${cat.color};` : '';
+  // Build children HTML (hidden if not expanded)
+  const childrenHtml = children.length
+    ? `<div class="sidebar-cat-children" style="display:${isExpanded ? 'block' : 'none'}">${children.map(c => buildSidebarNode(c, depth + 1)).join('')}</div>`
+    : '';
+
+  return `<div class="sidebar-cat-node" data-cat-id="${cat.id}">
+    <div class="sidebar-cat-row${isActive ? ' active' : ''}" style="padding-left:${pl}px;${colorBorder}">
+      <!-- Chevron: toggles expansion without navigating -->
+      <span class="sidebar-cat-chevron${isExpanded ? ' expanded' : ''}" onclick="event.stopPropagation(); toggleCategoryExpand('${cat.id}')">${children.length ? '›' : ''}</span>
+      <!-- Label: navigates AND expands -->
+      <span class="sidebar-cat-label" onclick="goToCategory('${cat.id}')">
+        <span class="sidebar-cat-icon">${cat.icon || '📁'}</span>
+        <span class="sidebar-cat-name">${esc(cat.name)}</span>
+      </span>
+      <!-- Hover actions: add child, edit, delete -->
+      <span class="sidebar-cat-actions">
+        <button class="sidebar-cat-action" onclick="event.stopPropagation(); openAddCategoryModal('${cat.id}')" title="Add sub-category">+</button>
+        <button class="sidebar-cat-action" onclick="event.stopPropagation(); openEditCategoryModal('${cat.id}')" title="Edit">✎</button>
+        <button class="sidebar-cat-action" onclick="event.stopPropagation(); deleteCategory('${cat.id}')" title="Delete">×</button>
+      </span>
+    </div>
+    ${childrenHtml}
+  </div>`;
+}
+
+// Toggles expansion of the Suivi accordion (fixed children).
+let suiviExpanded = false;
+function toggleSuiviExpand() {
+  suiviExpanded = !suiviExpanded;
+  const ch = document.getElementById('suivi-children');
+  const cv = document.getElementById('suivi-chevron');
+  if (ch) ch.style.display = suiviExpanded ? '' : 'none';
+  if (cv) cv.classList.toggle('expanded', suiviExpanded);
+}
+
+// Toggles expansion of a category in the sidebar accordion.
+// Does NOT navigate — only shows/hides children.
+function toggleCategoryExpand(id) {
+  if (expandedCategories.has(id)) expandedCategories.delete(id);
+  else expandedCategories.add(id);
+  renderSidebarCategories();
+}
+
+// Navigates to a category's content page AND expands it in the sidebar.
+// The main area shows filtered tasks/goals/habits for this category.
+// If id is null, goes back to dashboard.
+function goToCategory(id) {
+  if (!id) { activeCategoryId = null; goTo('dashboard'); return; }
+  activeCategoryId = id;
+  // Expand this node so children are visible
+  expandedCategories.add(id);
+  // Also expand all ancestors so the path is visible
+  let cat = getCategoryById(id);
+  while (cat && cat.parentId) {
+    expandedCategories.add(cat.parentId);
+    cat = getCategoryById(cat.parentId);
+  }
+  // Update sidebar highlighting
+  renderSidebarCategories();
+  // Update topbar title
+  const path = getCategoryPath(id);
+  document.getElementById('topbar-title').textContent = path.join(' > ');
+  document.getElementById('topbar-sub').textContent = '';
+  document.getElementById('topbar-actions').innerHTML = '';
+  // Navigate to the category view
+  currentView = 'category';
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-category'));
+  document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-btn[data-view]').forEach(b => b.classList.remove('active'));
+  document.getElementById('app').classList.remove('sidebar-open');
+  renderView('category');
+}
+
+// ─── Category CRUD ────────────────────────────────────────────
+function openAddCategoryModal(parentId = null) {
+  openModal({
+    title: parentId ? 'Add Sub-Category' : 'Add Root Category',
+    sub: parentId ? `Inside "${esc(getCategoryById(parentId)?.name || '')}"` : 'Top-level category',
+    fields: [
+      { name: 'name', label: 'Name', required: true, placeholder: 'e.g. Family, Growth...' },
+      { name: 'icon', label: 'Icon (emoji)', placeholder: 'e.g. 🏠' },
+      { name: 'color', label: 'Color (hex or name)', placeholder: 'e.g. #FF6B6B or family' },
+      { name: 'moduleType', label: 'Content Type', type: 'select', options: [['generic', 'Generic (tasks/goals/habits)'], ['meals', 'Meals (recipes + planning)'], ['finance-table', 'Finance Table (coming soon)'], ['dateIdeas', '🌹 Date Ideas (quiz + assistant)']] }
+    ],
+    submit: 'Add Category',
+    onSubmit: async v => {
+      if (!v.name) return;
+      const siblings = getCategoryChildren(parentId);
+      const id = uid();
+      const data = {
+        id, name: v.name, icon: v.icon || '', color: v.color || '',
+        parentId: parentId || null, moduleType: v.moduleType || 'generic',
+        order: siblings.length, createdAt: Date.now()
+      };
+      state.categories.push(data);
+      await saveDoc('categories', id, data);
+      renderSidebarCategories();
+      if (activeCategoryId) renderCategoryContent();
+    }
+  });
+}
+
+function openEditCategoryModal(id) {
+  const cat = getCategoryById(id);
+  if (!cat) return;
+  openModal({
+    title: 'Edit Category',
+    fields: [
+      { name: 'name', label: 'Name', required: true, value: cat.name },
+      { name: 'icon', label: 'Icon (emoji)', value: cat.icon || '' },
+      { name: 'color', label: 'Color', value: cat.color || '' },
+      { name: 'moduleType', label: 'Content Type', type: 'select', value: cat.moduleType || 'generic', options: [['generic', 'Generic (tasks/goals/habits)'], ['meals', 'Meals (recipes + planning)'], ['finance-table', 'Finance Table (coming soon)'], ['dateIdeas', '🌹 Date Ideas (quiz + assistant)']] }
+    ],
+    submit: 'Save Changes',
+    onSubmit: async v => {
+      Object.assign(cat, { name: v.name, icon: v.icon || '', color: v.color || '', moduleType: v.moduleType || 'generic' });
+      await saveDoc('categories', id, cat);
+      renderSidebarCategories();
+      if (activeCategoryId) renderCategoryContent();
+    }
+  });
+}
+
+async function deleteCategory(id) {
+  const cat = getCategoryById(id);
+  if (!cat) return;
+  const children = getCategoryChildren(id);
+  const linkedTasks = state.tasks.filter(t => t.categoryId === id).length;
+  const linkedGoals = state.goals.filter(g => g.categoryId === id).length;
+  const linkedHabits = state.habits.filter(h => h.categoryId === id).length;
+  const hasContent = children.length || linkedTasks || linkedGoals || linkedHabits;
+
+  let warning = `Delete "${cat.name}"?`;
+  if (children.length) warning += `\n\n⚠️ ${children.length} sub-categor${children.length === 1 ? 'y' : 'ies'} will become orphaned (moved to parent).`;
+  if (linkedTasks || linkedGoals || linkedHabits) {
+    const parts = [];
+    if (linkedTasks) parts.push(`${linkedTasks} task${linkedTasks > 1 ? 's' : ''}`);
+    if (linkedGoals) parts.push(`${linkedGoals} goal${linkedGoals > 1 ? 's' : ''}`);
+    if (linkedHabits) parts.push(`${linkedHabits} habit${linkedHabits > 1 ? 's' : ''}`);
+    warning += `\n\n⚠️ ${parts.join(', ')} linked to this category will be unlinked (set to no category).`;
+  }
+  if (!confirm(warning)) return;
+
+  // Reparent children to deleted node's parent
+  for (const child of children) {
+    child.parentId = cat.parentId || null;
+    await saveDoc('categories', child.id, { parentId: child.parentId });
+  }
+
+  // Unlink content
+  for (const t of state.tasks.filter(t => t.categoryId === id)) {
+    t.categoryId = null;
+    await saveDoc('tasks', t.id, { categoryId: null });
+  }
+  for (const g of state.goals.filter(g => g.categoryId === id)) {
+    g.categoryId = null;
+    await saveDoc('goals', g.id, { categoryId: null });
+  }
+  for (const h of state.habits.filter(h => h.categoryId === id)) {
+    h.categoryId = null;
+    await saveDoc('habits', h.id, { categoryId: null });
+  }
+
+  state.categories = state.categories.filter(c => c.id !== id);
+  await deleteDoc('categories', id);
+  expandedCategories.delete(id);
+  if (activeCategoryId === id) {
+    activeCategoryId = cat.parentId || null;
+    if (activeCategoryId) goToCategory(activeCategoryId);
+    else { currentView = 'dashboard'; goTo('dashboard'); }
+  }
+  renderSidebarCategories();
+  if (activeCategoryId) renderCategoryContent();
+}
+
+// ─── Category tree rendering (legacy — kept for backward compat) ──
+function renderCategories() {
+  const treeEl = document.getElementById('categories-tree');
+  const contentEl = document.getElementById('categories-content');
+  if (!treeEl || !contentEl) return;
+
+  if (!state.categories.length) {
+    treeEl.innerHTML = `<div class="empty-state" style="padding:20px 0"><div class="empty-icon">🌳</div><p>No categories yet.</p><small>Create your first category to organize everything.</small></div>`;
+    contentEl.innerHTML = '';
+    return;
+  }
+
+  // If a node is selected, show its content
+  if (currentCategoryId) {
+    const cat = getCategoryById(currentCategoryId);
+    if (!cat) { currentCategoryId = null; renderCategories(); return; }
+    treeEl.innerHTML = buildCategoryBreadcrumb(currentCategoryId) + buildCategoryChildrenList(currentCategoryId);
+    contentEl.innerHTML = buildCategoryContent(cat);
+    return;
+  }
+
+  // Root view: show top-level categories
+  const roots = getCategoryChildren(null);
+  treeEl.innerHTML = roots.map(cat => buildCategoryNodeHTML(cat, 0)).join('');
+  contentEl.innerHTML = `<div class="empty-state" style="padding:40px 0"><div class="empty-icon">👈</div><p>Select a category to view its content</p></div>`;
+}
+
+function buildCategoryBreadcrumb(id) {
+  const path = getCategoryPath(id);
+  let html = '<div class="cat-breadcrumb">';
+  html += `<span class="cat-breadcrumb-item" onclick="currentCategoryId=null; renderCategories()" style="cursor:pointer;color:var(--accent)">🏠 All</span>`;
+  let parentId = null;
+  for (let i = 0; i < path.length; i++) {
+    // walk path to find parentId at each level
+    const ancestors = getCategoryPath(id).slice(0, i + 1);
+    let nodeId = null;
+    for (const c of state.categories) {
+      if (getCategoryPath(c.id).join(' > ') === ancestors.join(' > ')) { nodeId = c.id; break; }
+    }
+    html += ` <span style="color:var(--text-muted)">›</span> `;
+    if (i === path.length - 1) {
+      html += `<span class="cat-breadcrumb-current">${esc(path[i])}</span>`;
+    } else {
+      html += `<span class="cat-breadcrumb-item" onclick="currentCategoryId='${nodeId}'; renderCategories()" style="cursor:pointer;color:var(--accent)">${esc(path[i])}</span>`;
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+function buildCategoryNodeHTML(cat, depth) {
+  const children = getCategoryChildren(cat.id);
+  const childCount = children.length;
+  const linkedCount = state.tasks.filter(t => t.categoryId === cat.id).length
+    + state.goals.filter(g => g.categoryId === cat.id).length
+    + state.habits.filter(h => h.categoryId === cat.id).length;
+  const moduleTag = cat.moduleType && cat.moduleType !== 'generic'
+    ? `<span class="cat-module-tag ${cat.moduleType}">${cat.moduleType === 'meals' ? '🍽️ Meals' : cat.moduleType === 'dateIdeas' ? '🌹 Date Ideas' : '📊 Finance'}</span>`
+    : '';
+  const colorStyle = cat.color ? `border-left: 3px solid ${cat.color};` : '';
+  return `<div class="cat-node" style="padding-left:${depth * 20}px">
+    <div class="cat-node-row" onclick="currentCategoryId='${cat.id}'; renderCategories()" style="${colorStyle}">
+      <span class="cat-node-icon">${cat.icon || '📁'}</span>
+      <span class="cat-node-name">${esc(cat.name)}</span>
+      ${moduleTag}
+      <span class="cat-node-count">${childCount > 0 ? childCount + ' sub' : ''} ${linkedCount > 0 ? linkedCount + ' items' : ''}</span>
+    </div>
+    <div class="cat-node-actions">
+      <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); openAddCategoryModal('${cat.id}')" title="Add sub-category">+</button>
+      <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); openEditCategoryModal('${cat.id}')" title="Edit">✎</button>
+      <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); deleteCategory('${cat.id}')" title="Delete">×</button>
+    </div>
+  </div>${children.map(c => buildCategoryNodeHTML(c, depth + 1)).join('')}`;
+}
+
+function buildCategoryChildrenList(parentId) {
+  const children = getCategoryChildren(parentId);
+  if (!children.length && !currentCategoryId) return '';
+  let html = '<div class="cat-children">';
+  html += `<div class="cat-children-header"><span class="cat-children-title">${currentCategoryId ? 'Sub-categories' : 'Root Categories'}</span>`;
+  html += `<button class="btn btn-sm" onclick="openAddCategoryModal(${currentCategoryId ? "'" + currentCategoryId + "'" : 'null'})">+ Add</button></div>`;
+  if (children.length) {
+    html += children.map(c => {
+      const childCount = getCategoryChildren(c.id).length;
+      const moduleTag = c.moduleType && c.moduleType !== 'generic'
+        ? `<span class="cat-module-tag ${c.moduleType}">${c.moduleType === 'meals' ? '🍽️' : c.moduleType === 'dateIdeas' ? '🌹' : '📊'}</span>` : '';
+      const colorStyle = c.color ? `border-left: 3px solid ${c.color};` : '';
+      return `<div class="cat-child-card" onclick="currentCategoryId='${c.id}'; renderCategories()" style="${colorStyle}">
+        <span class="cat-child-icon">${c.icon || '📁'}</span>
+        <span class="cat-child-name">${esc(c.name)}</span>
+        ${moduleTag}
+        ${childCount ? `<span class="cat-child-count">${childCount}</span>` : ''}
+        <div class="cat-child-actions">
+          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); openEditCategoryModal('${c.id}')" title="Edit">✎</button>
+          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); deleteCategory('${c.id}')" title="Delete">×</button>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    html += `<div class="empty-state" style="padding:16px 0"><p>No sub-categories yet.</p></div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// ─── Category content rendering ───────────────────────────────
+function buildCategoryContent(cat) {
+  if (cat.moduleType === 'meals') return buildMealsContent(cat);
+  if (cat.moduleType === 'finance-table') return buildFinancePlaceholder(cat);
+
+  // Generic: show tasks, goals, habits linked to this category
+  const tasks = state.tasks.filter(t => t.categoryId === cat.id);
+  const goals = state.goals.filter(g => g.categoryId === cat.id);
+  const habits = state.habits.filter(h => h.categoryId === cat.id);
+
+  let html = '<div class="cat-content">';
+  if (tasks.length || goals.length || habits.length) {
+    if (tasks.length) {
+      html += `<div class="cat-content-section"><div class="cat-content-title">☑️ Tasks (${tasks.length})</div>`;
+      html += tasks.map(t => `<div class="cat-content-item">${renderTaskInline(t)}</div>`).join('');
+      html += '</div>';
+    }
+    if (goals.length) {
+      html += `<div class="cat-content-section"><div class="cat-content-title">🎯 Goals (${goals.length})</div>`;
+      html += goals.map(g => `<div class="cat-content-item">${renderGoalInline(g)}</div>`).join('');
+      html += '</div>';
+    }
+    if (habits.length) {
+      html += `<div class="cat-content-section"><div class="cat-content-title">🔥 Habits (${habits.length})</div>`;
+      html += habits.map(h => `<div class="cat-content-item">${renderHabitInline(h)}</div>`).join('');
+      html += '</div>';
+    }
+  } else {
+    html += `<div class="empty-state" style="padding:30px 0"><p>No items in this category yet.</p><small>Create tasks, goals, or habits and assign them to this category.</small></div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderTaskInline(t) {
+  const overdue = !t.done && t.dueDate && t.dueDate < dk();
+  return `<div class="inline-task${t.done ? ' done' : ''}">
+    <button class="task-check-sm" onclick="toggleTask('${t.id}'); renderCategories()">${t.done ? '✓' : ''}</button>
+    <span class="inline-task-title">${esc(t.title)}</span>
+    ${t.dueDate ? `<span class="inline-task-due${overdue ? ' overdue' : ''}">${relativeDay(t.dueDate)}</span>` : ''}
+    ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+  </div>`;
+}
+
+function renderGoalInline(g) {
+  return `<div class="inline-goal">
+    <span class="inline-goal-title">${esc(g.title)}</span>
+    <div class="prog-track" style="flex:1;max-width:120px"><div class="prog-fill" style="width:${g.progress || 0}%"></div></div>
+    <span class="inline-goal-pct">${g.progress || 0}%</span>
+  </div>`;
+}
+
+function renderHabitInline(h) {
+  const streak = calcStreak(h.checkIns || []);
+  return `<div class="inline-habit">
+    <span class="inline-habit-name">${esc(h.name)}</span>
+    ${streak > 0 ? `<span class="streak-badge">🔥 ${streak}</span>` : ''}
+    <button class="btn btn-ghost btn-xs" onclick="toggleHabitToday('${h.id}'); renderCategoryContent()">Check in</button>
+  </div>`;
+}
+
+// ─── Category content page (main area) ───────────────────────
+// Shows filtered tasks, goals, and habits for the active category.
+// Reuses the same card markup as the standalone Tasks/Goals/Habits views.
+function renderCategoryContent() {
+  const el = document.getElementById('category-content');
+  if (!el) return;
+  const id = activeCategoryId;
+  if (!id) { el.innerHTML = '<div class="empty-state"><p>Select a category from the sidebar</p></div>'; return; }
+  const cat = getCategoryById(id);
+  if (!cat) { el.innerHTML = '<div class="empty-state"><p>Category not found</p></div>'; return; }
+
+  // Special module types: redirect or use specific renderer
+  if (cat.moduleType === 'finance-table') {
+    goTo('finance');
+    return;
+  }
+  if (cat.moduleType === 'meals') {
+    el.innerHTML = buildMealsContent(cat);
+    return;
+  }
+  if (cat.moduleType === 'dateIdeas') {
+    el.innerHTML = renderDateIdeasContent(cat);
+    return;
+  }
+
+  // Build set of all descendant IDs for content filtering
+  const catIds = new Set([id]);
+  function collectDescendants(parentId) {
+    for (const child of getCategoryChildren(parentId)) {
+      catIds.add(child.id);
+      collectDescendants(child.id);
+    }
+  }
+  collectDescendants(id);
+  const today = dk();
+
+  // Tab system for generic categories
+  const tabs = cat.tabs || [];
+  if (!window._activeCategoryTab || !tabs.find(t => t.id === window._activeCategoryTab)) {
+    window._activeCategoryTab = tabs.length ? tabs[0].id : null;
+  }
+
+  let html = '';
+
+  // Breadcrumb path at the top
+  const path = getCategoryPath(id);
+  html += `<div class="cat-page-breadcrumb">`;
+  html += `<span class="cat-page-bc-link" onclick="goToCategory(null)">🏠 All</span>`;
+  for (let i = 0; i < path.length; i++) {
+    const ancestors = path.slice(0, i + 1);
+    let nodeId = null;
+    for (const c of state.categories) {
+      if (getCategoryPath(c.id).join(' > ') === ancestors.join(' > ')) { nodeId = c.id; break; }
+    }
+    html += ` <span style="color:var(--text-muted)">›</span> `;
+    if (i === path.length - 1) {
+      html += `<span class="cat-page-bc-current">${cat.icon ? cat.icon + ' ' : ''}${esc(cat.name)}</span>`;
+    } else {
+      html += `<span class="cat-page-bc-link" onclick="goToCategory('${nodeId}')">${esc(path[i])}</span>`;
+    }
+  }
+  html += '</div>';
+
+  // Tab bar
+  html += `<div class="cat-tab-bar" style="display:flex;gap:4px;flex-wrap:wrap;margin:12px 0">`;
+  const typeUsed = new Set();
+  for (const tab of tabs) {
+    typeUsed.add(tab.type);
+    const active = tab.id === window._activeCategoryTab;
+    html += `<button class="btn btn-sm${active ? ' btn-primary' : ''}" onclick="window._activeCategoryTab='${tab.id}';renderCategoryContent()">${esc(tab.label)}</button>`;
+  }
+  const availableTypes = [];
+  if (!typeUsed.has('tasks')) availableTypes.push(['tasks', '☑️ Tasks']);
+  if (!typeUsed.has('goals')) availableTypes.push(['goals', '🎯 Goals']);
+  if (!typeUsed.has('habits')) availableTypes.push(['habits', '🔥 Habits']);
+  if (!typeUsed.has('list')) availableTypes.push(['list', '📋 Liste simple']);
+  if (availableTypes.length) {
+    html += `<button class="btn btn-sm btn-ghost" onclick="openAddTabModal('${cat.id}', [${availableTypes.map(([t,l]) => `['${t}','${l}']`).join(',')}])">+ Ajouter un onglet</button>`;
+  }
+  html += `</div>`;
+
+  // Active tab content
+  const activeTab = tabs.find(t => t.id === window._activeCategoryTab);
+  if (activeTab) {
+    html += renderCategoryTabContent(cat, activeTab, catIds, today);
+  } else if (!tabs.length) {
+    html += `<div class="empty-state" style="padding:24px 0"><div class="empty-icon">📋</div><p>This page is empty</p><small>Click "+ Ajouter un onglet" above to add Tasks, Goals, Habits, or a simple checklist.</small></div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function renderCategoryTabContent(cat, tab, catIds, today) {
+  switch (tab.type) {
+    case 'tasks': return renderTabTasks(cat, catIds, today);
+    case 'goals': return renderTabGoals(cat, catIds);
+    case 'habits': return renderTabHabits(cat, catIds, today);
+    case 'list': return renderTabList(cat, tab);
+    default: return '<div class="empty-state"><p>Unknown tab type</p></div>';
+  }
+}
+
+function renderTabTasks(cat, catIds, today) {
+  const tasks = state.tasks.filter(t => catIds.has(t.categoryId));
+  let html = `<div class="cat-page-section"><div class="cat-page-section-header">
+    <span class="cat-page-section-title">☑️ Tasks (${tasks.length})</span>
+    <button class="btn btn-sm" onclick="openAddTaskModal('', null, null)">+ Add</button>
+  </div>`;
+  if (tasks.length) {
+    const undone = tasks.filter(t => !t.done);
+    const done = tasks.filter(t => t.done);
+    html += undone.map(t => {
+      const overdue = !t.done && t.dueDate && t.dueDate < today;
+      return `<div class="cat-page-task">
+        <button class="task-check-sm" onclick="toggleTask('${t.id}'); renderCategoryContent()">${t.done ? '✓' : ''}</button>
+        <span class="cat-page-task-title">${esc(t.title)}</span>
+        ${t.dueDate ? `<span class="cat-page-task-due${overdue ? ' overdue' : ''}">${relativeDay(t.dueDate)}</span>` : ''}
+        ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+      </div>`;
+    }).join('');
+    if (done.length) {
+      html += `<details class="cat-page-done"><summary>Completed (${done.length})</summary>`;
+      html += done.map(t => `<div class="cat-page-task done">
+        <button class="task-check-sm" onclick="toggleTask('${t.id}'); renderCategoryContent()">✓</button>
+        <span class="cat-page-task-title">${esc(t.title)}</span>
+      </div>`).join('');
+      html += '</details>';
+    }
+  } else {
+    html += '<div class="empty-state" style="padding:12px 0"><p>No tasks in this category</p></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderTabGoals(cat, catIds) {
+  const goals = state.goals.filter(g => catIds.has(g.categoryId));
+  let html = `<div class="cat-page-section"><div class="cat-page-section-header">
+    <span class="cat-page-section-title">🎯 Goals (${goals.length})</span>
+    <button class="btn btn-sm" onclick="openAddGoalModal()">+ Add</button>
+  </div>`;
+  if (goals.length) {
+    html += goals.map(g => `<div class="cat-page-goal">
+      <div class="cat-page-goal-header" onclick="openAddGoalModal(state.goals.find(x=>x.id==='${g.id}'))" style="cursor:pointer">
+        <span class="cat-page-goal-title">${esc(g.title)}</span>
+        ${g.isSprintObjective ? '<span class="cat-module-tag">🚀 Sprint</span>' : ''}
+      </div>
+      <div class="prog-track" style="max-width:200px"><div class="prog-fill" style="width:${g.progress || 0}%"></div></div>
+      <span style="font-size:12px;color:var(--text-muted)">${g.progress || 0}%</span>
+    </div>`).join('');
+  } else {
+    html += '<div class="empty-state" style="padding:12px 0"><p>No goals in this category</p></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderTabHabits(cat, catIds, today) {
+  const habits = state.habits.filter(h => catIds.has(h.categoryId));
+  let html = `<div class="cat-page-section"><div class="cat-page-section-header">
+    <span class="cat-page-section-title">🔥 Habits (${habits.length})</span>
+    <button class="btn btn-sm" onclick="openAddHabitModal()">+ Add</button>
+  </div>`;
+  if (habits.length) {
+    html += habits.map(h => {
+      const streak = calcStreak(h.checkIns || []);
+      const checkedToday = (h.checkIns || []).includes(today);
+      return `<div class="cat-page-habit">
+        <button class="task-check-sm${checkedToday ? ' done' : ''}" onclick="toggleHabitToday('${h.id}'); renderCategoryContent()">${checkedToday ? '✓' : ''}</button>
+        <span class="cat-page-habit-name">${esc(h.name)}</span>
+        ${streak > 0 ? `<span class="streak-badge">🔥 ${streak}</span>` : ''}
+      </div>`;
+    }).join('');
+  } else {
+    html += '<div class="empty-state" style="padding:12px 0"><p>No habits in this category</p></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderTabList(cat, tab) {
+  const items = state.checklistItems.filter(i => i.categoryId === cat.id && i.tabId === tab.id);
+  let html = `<div class="cat-page-section"><div class="cat-page-section-header">
+    <span class="cat-page-section-title">📋 ${esc(tab.label)} (${items.length})</span>
+  </div>`;
+  html += `<div style="display:flex;gap:6px;margin-bottom:12px">
+    <input type="text" id="checklist-input-${tab.id}" placeholder="Nouvel élément..." style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text)">
+    <button class="btn btn-sm" onclick="addChecklistItem('${cat.id}','${tab.id}')">+</button>
+  </div>`;
+  if (items.length) {
+    html += items.map(i => `
+      <div class="cat-page-task${i.done ? ' done' : ''}">
+        <button class="task-check-sm" onclick="toggleChecklistItem('${i.id}')">${i.done ? '✓' : ''}</button>
+        <span class="cat-page-task-title">${esc(i.text)}</span>
+        <button class="btn btn-ghost btn-xs" onclick="deleteChecklistItem('${i.id}')" style="margin-left:auto">×</button>
+      </div>`).join('');
+  } else {
+    html += '<div class="empty-state" style="padding:12px 0"><p>No items yet</p></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function openAddTabModal(catId, availableTypes) {
+  const cat = getCategoryById(catId);
+  if (!cat) return;
+  openModal({
+    title: 'Ajouter un onglet',
+    sub: `Choose a tab type for "${esc(cat.name)}"`,
+    fields: [
+      { name: 'type', label: 'Type d\'onglet', type: 'select', options: availableTypes },
+      { name: 'label', label: 'Label (optionnel)', placeholder: 'e.g. My Tasks' }
+    ],
+    submit: 'Add',
+    onSubmit: async v => {
+      if (!cat.tabs) cat.tabs = [];
+      const tab = { id: uid(), type: v.type, label: v.label || ({ tasks: '☑️ Tasks', goals: '🎯 Goals', habits: '🔥 Habits', list: '📋 Liste' })[v.type] || v.type };
+      cat.tabs.push(tab);
+      await saveDoc('categories', catId, { tabs: cat.tabs });
+      window._activeCategoryTab = tab.id;
+      renderCategoryContent();
+    }
+  });
+}
+
+async function addChecklistItem(categoryId, tabId) {
+  const input = document.getElementById('checklist-input-' + tabId);
+  if (!input || !input.value.trim()) return;
+  const id = uid();
+  const data = { id, categoryId, tabId, text: input.value.trim(), done: false, createdAt: Date.now() };
+  state.checklistItems.push(data);
+  await saveDoc('checklistItems', id, data);
+  renderCategoryContent();
+}
+
+async function toggleChecklistItem(id) {
+  const item = state.checklistItems.find(i => i.id === id);
+  if (!item) return;
+  item.done = !item.done;
+  await saveDoc('checklistItems', id, { done: item.done });
+  if (currentView === 'category') renderCategoryContent();
+  else renderSuiviActiveTab();
+}
+
+async function deleteChecklistItem(id) {
+  state.checklistItems = state.checklistItems.filter(i => i.id !== id);
+  await deleteDoc('checklistItems', id);
+  if (currentView === 'category') renderCategoryContent();
+  else renderSuiviActiveTab();
+}
+
+async function removeCategoryTab(catId, tabId) {
+  const cat = getCategoryById(catId);
+  if (!cat || !cat.tabs) return;
+  const tab = cat.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+  openModal({
+    title: 'Remove tab?',
+    sub: `"${esc(tab.label)}" will be hidden. Any tasks, goals, habits or checklist items inside will remain and reappear if you re-add this tab type.`,
+    fields: [],
+    submit: 'Remove',
+    onSubmit: async () => {
+      cat.tabs = cat.tabs.filter(t => t.id !== tabId);
+      await saveDoc('categories', catId, { tabs: cat.tabs });
+      if (window._activeCategoryTab === tabId) window._activeCategoryTab = cat.tabs.length ? cat.tabs[0].id : null;
+      renderCategoryContent();
+    }
+  });
+}
+
+// ─── Meals content for 'meals' moduleType nodes ──────────────
+function buildMealsContent(cat) {
+  let html = '<div class="cat-content">';
+  // Recipes section
+  html += `<div class="cat-content-section"><div class="cat-content-title">🍽️ Recipes</div>`;
+  const catRecipes = state.recipes.filter(r => r.categoryId === cat.id);
+  if (catRecipes.length) {
+    html += catRecipes.map(r => `<div class="cat-content-item cat-recipe-card" onclick="openRecipeModal(state.recipes.find(x=>x.id==='${r.id}'))" style="cursor:pointer">
+      <span>${esc(r.name)}</span>
+      <span style="color:var(--text-muted);font-size:12px">${(r.ingredients || []).length} ingredients</span>
+    </div>`).join('');
+  } else {
+    html += `<div style="padding:8px 0;color:var(--text-muted);font-size:13px">No recipes yet.</div>`;
+  }
+  html += `<button class="btn btn-sm btn-ghost" onclick="openRecipeModalWithCategory('${cat.id}')">+ Add Recipe</button></div>`;
+
+  // Meal plan section
+  html += `<div class="cat-content-section"><div class="cat-content-title">📅 Weekly Meal Plan</div>`;
+  html += `<div class="meal-plan-mini">`;
+  const catMealPlan = state.mealPlan.filter(m => m.categoryId === cat.id);
+  html += MEAL_DAYS.map(day => {
+    const dayMeals = MEAL_SLOTS.map(slot => {
+      const meal = catMealPlan.find(m => m.day === day && m.repas === slot);
+      const recipe = meal ? state.recipes.find(r => r.id === meal.recipeId) : null;
+      return `<div class="meal-slot-mini">
+        <span class="meal-slot-label-sm">${MEAL_SLOT_LABELS[slot]}</span>
+        ${recipe ? `<span class="meal-slot-recipe-sm" onclick="openMealPlanModalForCategory('${cat.id}','${day}','${slot}')" style="cursor:pointer">${esc(recipe.name)}</span>` : `<button class="btn btn-ghost btn-xs" onclick="openMealPlanModalForCategory('${cat.id}','${day}','${slot}')">+</button>`}
+      </div>`;
+    }).join('');
+    return `<div class="meal-day-mini"><div class="meal-day-label-sm">${MEAL_DAY_LABELS[day].slice(0, 3)}</div>${dayMeals}</div>`;
+  }).join('');
+  html += '</div></div>';
+
+  // Grocery list
+  html += `<div class="cat-content-section">
+    <button class="btn btn-sm" onclick="generateGroceryListForCategory('${cat.id}')">🛒 Generate Grocery List</button>
+    <div id="grocery-list-${cat.id}" style="margin-top:12px"></div>
+  </div>`;
+
+  html += '</div>';
+  return html;
+}
+
+function openRecipeModalWithCategory(categoryId) {
+  openModal({
+    title: 'New Recipe',
+    sub: 'One ingredient per line: name, amount, unit',
+    fields: [
+      { name: 'name', label: 'Recipe Name', required: true, placeholder: 'e.g. Pasta Bolognese' },
+      { name: 'ingredients', label: 'Ingredients (one per line)', type: 'textarea', placeholder: 'ground beef, 500, g\nonion, 1, piece\nolive oil, 2, tbsp' }
+    ],
+    submit: 'Add Recipe',
+    onSubmit: async v => {
+      const ingredients = v.ingredients.split('\n').filter(l => l.trim()).map(line => {
+        const parts = line.split(',').map(s => s.trim());
+        return { name: parts[0] || '', amount: parseFloat(parts[1]) || 0, unit: parts[2] || 'pcs' };
+      });
+      const id = uid();
+      const data = { id, name: v.name, ingredients, categoryId, createdAt: Date.now() };
+      state.recipes.unshift(data);
+      await saveDoc('recipes', id, data);
+      renderCategoryContent();
+    }
+  });
+}
+
+function openMealPlanModalForCategory(categoryId, day, repas) {
+  const existing = state.mealPlan.find(m => m.day === day && m.repas === repas && m.categoryId === categoryId);
+  const options = state.recipes.filter(r => r.categoryId === categoryId).map(r => [r.id, r.name]);
+  if (!options.length) {
+    // Fall back to all recipes if no category-specific ones
+    const allOptions = state.recipes.map(r => [r.id, r.name]);
+    if (!allOptions.length) { toast('Add a recipe first', 'info'); return; }
+    openMealPlanModalWithOpts(categoryId, day, repas, existing, allOptions);
+    return;
+  }
+  openMealPlanModalWithOpts(categoryId, day, repas, existing, options);
+}
+
+function openMealPlanModalWithOpts(categoryId, day, repas, existing, options) {
+  openModal({
+    title: `${MEAL_DAY_LABELS[day]} — ${MEAL_SLOT_LABELS[repas]}`,
+    fields: [
+      { name: 'recipeId', label: 'Recipe', type: 'select', options, value: existing ? existing.recipeId : options[0][0] }
+    ],
+    submit: 'Save',
+    onSubmit: async v => {
+      if (existing) {
+        existing.recipeId = v.recipeId;
+        await saveDoc('mealPlan', existing.id, existing);
+      } else {
+        const id = uid();
+        const data = { id, day, recipeId: v.recipeId, repas, categoryId, createdAt: Date.now() };
+        state.mealPlan.push(data);
+        await saveDoc('mealPlan', id, data);
+      }
+      renderCategoryContent();
+    }
+  });
+}
+
+function generateGroceryListForCategory(categoryId) {
+  const container = document.getElementById(`grocery-list-${categoryId}`);
+  if (!container) return;
+  const aggregated = {};
+  state.mealPlan.filter(m => m.categoryId === categoryId).forEach(mp => {
+    const recipe = state.recipes.find(r => r.id === mp.recipeId);
+    if (!recipe) return;
+    (recipe.ingredients || []).forEach(ing => {
+      const key = `${ing.name.toLowerCase()}|${ing.unit.toLowerCase()}`;
+      if (!aggregated[key]) aggregated[key] = { name: ing.name, amount: 0, unit: ing.unit };
+      aggregated[key].amount += ing.amount;
+    });
+  });
+  const items = Object.values(aggregated).sort((a, b) => a.name.localeCompare(b.name));
+  if (!items.length) { container.innerHTML = '<div style="padding:8px 0;color:var(--text-muted);font-size:13px">No planned meals.</div>'; return; }
+  container.innerHTML = items.map(i =>
+    `<div class="grocery-item"><span class="grocery-check" onclick="this.classList.toggle('done')"></span><span>${esc(i.name)}</span><span class="grocery-qty">${i.amount} ${i.unit}</span></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATE IDEAS MODULE (quiz / "à choix")
+// ═══════════════════════════════════════════════════════════════
+
+const DATE_IDEAS_SEED = [
+  'Go for a walk|outdoor|true|couple|true',
+  'Get some ice cream|outdoor|false|couple|true',
+  'Go ice skating|indoor|true|couple|true',
+  'Play tennis or pickleball|outdoor|true|both|true',
+  'Play a board game|indoor|false|both|false',
+  'Cook a meal together|indoor|false|couple|false',
+  'Share three things you admire about each other|indoor|false|couple|false',
+  'Read aloud to one another|indoor|false|couple|false',
+  'Watch a documentary|indoor|false|couple|false',
+  'Take up a new hobby|both|false|couple|false',
+  'Make up a song or poem together|indoor|false|couple|false',
+  'Go for a drive|outdoor|false|couple|true',
+  'Sit on the porch and talk|outdoor|false|couple|false',
+  'Browse a bookstore or library together|indoor|false|couple|true',
+  'Take a bath or shower together|indoor|false|couple|false',
+  'Go thrift shopping|indoor|false|couple|true',
+  'Attend a school football or basketball game|both|false|both|true',
+  'Plan a dream vacation together|indoor|false|couple|false',
+  'Wash the car together|outdoor|true|couple|false',
+  'Learn a new craft together|indoor|false|couple|false',
+  'Hike through a state park|outdoor|true|couple|true',
+  'Pack a picnic to share|outdoor|false|couple|true',
+  'Lay on a blanket and watch the stars|outdoor|false|couple|true',
+  'Stage a competition: sit-ups, cards, basketball|both|true|both|false',
+  'Attend an outdoor concert|outdoor|false|both|true',
+  'Work out together|both|true|couple|false',
+  'Watch a sunrise/sunset together|outdoor|false|couple|true',
+  'Go grocery shopping for special treats together|indoor|false|couple|true',
+  'Share high point/low point for the day or week|indoor|false|couple|false',
+  'Listen to an audiobook together & discuss|indoor|false|couple|false',
+  'Play disc golf|outdoor|true|both|true',
+  'Visit a local art museum|indoor|false|couple|true',
+  'Set goals together: 5-year plan? 10-year?|indoor|false|couple|false',
+  'Give each other back rubs|indoor|false|couple|false',
+  'Go swimming|both|true|couple|true',
+  'Snuggle and cuddle|indoor|false|couple|false',
+  'Climb a tree and sit in its branches|outdoor|true|couple|true',
+  'Go antiquing|indoor|false|couple|true',
+  'Look at old snapshots together|indoor|false|couple|false',
+  'Go fishing|outdoor|false|couple|true',
+  'Listen to favorite songs together|indoor|false|couple|false',
+  'Watch funny videos|indoor|false|couple|false',
+  'Slow dance under the stars|outdoor|true|couple|true',
+  'Run errands together|outdoor|false|couple|true',
+  'Plan your dream home|indoor|false|couple|false',
+  'Pitch a tent and sleep outdoors|outdoor|true|couple|true',
+  'Make an empty nest list together|indoor|false|couple|false',
+  'Go bowling|indoor|true|both|true',
+  'Exchange love notes to one another|indoor|false|couple|false',
+  'Make music together|indoor|false|couple|false',
+];
+
+function parseDateIdeaLine(line) {
+  const parts = line.split('|');
+  if (parts.length !== 5) return null;
+  return {
+    name: parts[0].trim(),
+    tags: {
+      location: parts[1].trim(),
+      physical: parts[2].trim() === 'true',
+      social: parts[3].trim(),
+      goOut: parts[4].trim() === 'true',
+    }
+  };
+}
+
+async function seedDateIdeas() {
+  if (state.dateIdeas.length > 0) return;
+  for (const line of DATE_IDEAS_SEED) {
+    const parsed = parseDateIdeaLine(line);
+    if (!parsed) continue;
+    const id = uid();
+    const data = { id, name: parsed.name, tags: parsed.tags, createdAt: Date.now() };
+    state.dateIdeas.push(data);
+    await saveDoc('dateIdeas', id, data);
+  }
+  toast('Date ideas seeded! ' + state.dateIdeas.length + ' ideas loaded', 'success');
+}
+
+async function addDateIdea(name, tags) {
+  const id = uid();
+  const data = { id, name, tags, createdAt: Date.now() };
+  state.dateIdeas.push(data);
+  await saveDoc('dateIdeas', id, data);
+  const cat = getCategoryById(activeCategoryId);
+  if (cat && cat.moduleType === 'dateIdeas') {
+    document.getElementById('category-content').innerHTML = renderDateIdeasContent(cat);
+  }
+}
+
+async function editDateIdea(id, name, tags) {
+  const idx = state.dateIdeas.findIndex(d => d.id === id);
+  if (idx === -1) return;
+  state.dateIdeas[idx].name = name;
+  state.dateIdeas[idx].tags = tags;
+  await saveDoc('dateIdeas', id, { name, tags });
+  const cat = getCategoryById(activeCategoryId);
+  if (cat && cat.moduleType === 'dateIdeas') {
+    document.getElementById('category-content').innerHTML = renderDateIdeasContent(cat);
+  }
+}
+
+async function deleteDateIdea(id) {
+  state.dateIdeas = state.dateIdeas.filter(d => d.id !== id);
+  await deleteDoc('dateIdeas', id);
+  const cat = getCategoryById(activeCategoryId);
+  if (cat && cat.moduleType === 'dateIdeas') {
+    document.getElementById('category-content').innerHTML = renderDateIdeasContent(cat);
+  }
+}
+
+function openAddDateIdeaModal() {
+  openModal({
+    title: 'Add Date Idea',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true, placeholder: 'e.g. Go for a walk' },
+      { name: 'location', label: 'Location', type: 'select', value: 'indoor',
+        options: [['indoor','Indoor'],['outdoor','Outdoor'],['both','Both']] },
+      { name: 'physical', label: 'Physical activity?', type: 'select', value: 'no',
+        options: [['yes','Yes'],['no','No']] },
+      { name: 'social', label: 'Social setting', type: 'select', value: 'couple',
+        options: [['couple','Just us'],['friends','With friends'],['both','Both']] },
+      { name: 'goOut', label: 'Go out?', type: 'select', value: 'no',
+        options: [['yes','Yes'],['no','No']] },
+    ],
+    submit: 'Add',
+    onSubmit: async vals => {
+      const tags = {
+        location: vals.location,
+        physical: vals.physical === 'yes',
+        social: vals.social,
+        goOut: vals.goOut === 'yes',
+      };
+      await addDateIdea(vals.name, tags);
+    }
+  });
+}
+
+function openEditDateIdeaModal(id) {
+  const editData = state.dateIdeas.find(d => d.id === id);
+  if (!editData) return;
+  openModal({
+    title: 'Edit Date Idea',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true, value: editData.name },
+      { name: 'location', label: 'Location', type: 'select', value: editData.tags.location,
+        options: [['indoor','Indoor'],['outdoor','Outdoor'],['both','Both']] },
+      { name: 'physical', label: 'Physical activity?', type: 'select', value: editData.tags.physical ? 'yes' : 'no',
+        options: [['yes','Yes'],['no','No']] },
+      { name: 'social', label: 'Social setting', type: 'select', value: editData.tags.social,
+        options: [['couple','Just us'],['friends','With friends'],['both','Both']] },
+      { name: 'goOut', label: 'Go out?', type: 'select', value: editData.tags.goOut ? 'yes' : 'no',
+        options: [['yes','Yes'],['no','No']] },
+    ],
+    submit: 'Save',
+    onSubmit: async vals => {
+      const tags = {
+        location: vals.location,
+        physical: vals.physical === 'yes',
+        social: vals.social,
+        goOut: vals.goOut === 'yes',
+      };
+      await editDateIdea(editData.id, vals.name, tags);
+    }
+  });
+}
+
+function renderDateIdeasContent(cat) {
+  const ideas = state.dateIdeas;
+  if (!ideas.length) {
+    return `<div class="cat-content">
+      <div class="empty-state"><div class="empty-icon">🌹</div><p>No date ideas yet</p>
+      <button class="btn" onclick="openAddDateIdeaModal()">Add your first idea</button></div>
+    </div>`;
+  }
+
+  window._dateQuizAnswers = window._dateQuizAnswers || { goOut: null, location: null, physical: null, social: null };
+  const answers = window._dateQuizAnswers;
+  let picked = window._dateQuizPicked;
+
+  // Filter
+  let filtered = [...ideas];
+  if (answers.goOut !== null) {
+    filtered = filtered.filter(d => d.tags.goOut === answers.goOut);
+  }
+  if (answers.location !== null) {
+    filtered = filtered.filter(d => d.tags.location === answers.location || d.tags.location === 'both');
+  }
+  if (answers.physical !== null) {
+    filtered = filtered.filter(d => d.tags.physical === answers.physical);
+  }
+  if (answers.social !== null) {
+    filtered = filtered.filter(d => d.tags.social === answers.social || d.tags.social === 'both');
+  }
+
+  // Random pick
+  if (!picked && filtered.length > 0) {
+    picked = filtered[Math.floor(Math.random() * filtered.length)];
+    window._dateQuizPicked = picked;
+  }
+  if (picked && !filtered.find(d => d.id === picked.id)) {
+    picked = null;
+    window._dateQuizPicked = null;
+  }
+
+  const renderAnswer = (key, label, options) => {
+    const val = answers[key];
+    const opts = [['any', 'Peu importe'], ...options];
+    return opts.map(([v, lbl]) => {
+      let jsVal = 'null';
+      if (v !== 'any') {
+        if (v === 'true') jsVal = 'true';
+        else if (v === 'false') jsVal = 'false';
+        else jsVal = `'${v}'`;
+      }
+      const active = val === (v === 'any' ? null : (v === 'true' ? true : v === 'false' ? false : v));
+      return `<label class="date-quiz-option${active ? ' active' : ''}"
+             onclick="window._dateQuizAnswers.${key}=${jsVal};window._dateQuizPicked=null;document.getElementById('category-content').innerHTML=renderDateIdeasContent(getCategoryById(activeCategoryId))">
+        <input type="radio" name="dq-${key}" ${active ? 'checked' : ''}> ${lbl}
+      </label>`;
+    }).join('');
+  };
+
+  let html = `<div class="cat-content"><div class="cat-content-title">🌹 Date Ideas</div>`;
+
+  // Quiz questions
+  html += `<div class="date-quiz">
+    <div class="date-quiz-q"><label>Stay in or go out?</label><div class="date-quiz-options">${renderAnswer('goOut', 'Go out?', [['true','Go out'],['false','Stay in']])}</div></div>
+    <div class="date-quiz-q"><label>Indoor or outdoor?</label><div class="date-quiz-options">${renderAnswer('location', 'Location', [['indoor','Indoor'],['outdoor','Outdoor']])}</div></div>
+    <div class="date-quiz-q"><label>Active or calm?</label><div class="date-quiz-options">${renderAnswer('physical', 'Activity', [['true','Active'],['false','Calm']])}</div></div>
+    <div class="date-quiz-q"><label>Just us or with friends?</label><div class="date-quiz-options">${renderAnswer('social', 'Social', [['couple','Just us'],['friends','Friends']])}</div></div>
+  </div>`;
+
+  // Result
+  html += `<div class="date-result" style="margin:16px 0;padding:16px;background:var(--surface2);border-radius:var(--radius);text-align:center">`;
+  if (filtered.length === 0) {
+    html += `<p style="color:var(--text-muted)">No ideas match these filters. Try "Peu importe" on some options.</p>`;
+  } else if (picked) {
+    html += `<div style="font-size:20px;font-weight:600;margin-bottom:8px">${esc(picked.name)}</div>`;
+    html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+      ${picked.tags.goOut ? '🚗 Go out' : '🏠 Stay in'} · ${picked.tags.location === 'indoor' ? '🏠 Indoor' : picked.tags.location === 'outdoor' ? '🌳 Outdoor' : 'Both'} · ${picked.tags.physical ? '💪 Active' : '🛋️ Calm'} · ${picked.tags.social === 'couple' ? '💑 Just us' : picked.tags.social === 'friends' ? '👥 Friends' : 'Both'}
+    </div>`;
+    html += `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" onclick="window._dateQuizPicked=null;document.getElementById('category-content').innerHTML=renderDateIdeasContent(getCategoryById(activeCategoryId))">🔁 Retirer</button>
+      <button class="btn" onclick="scheduleDateIdea('${esc(picked.name)}')">📅 Programmer</button>
+      <button class="btn btn-secondary" onclick="openEditDateIdeaModal('${picked.id}')">✎ Modifier</button>
+    </div>`;
+  } else {
+    html += `<p style="color:var(--text-muted)">Click an option above to get started!</p>`;
+  }
+  html += `<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">${filtered.length} idea${filtered.length !== 1 ? 's' : ''} match${filtered.length === 1 ? 'es' : ''} your filters</div>`;
+  html += `</div>`;
+
+  // Toutes les idées
+  html += `<div class="date-all-ideas"><div class="cat-content-title" style="margin-top:16px">✨ All Ideas (${ideas.length})</div>`;
+  html += `<div style="margin-bottom:8px"><button class="btn" onclick="openAddDateIdeaModal()">+ Add Date Idea</button></div>`;
+  html += ideas.map(d => `
+    <div class="cat-content-item" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="flex:1">${esc(d.name)}</span>
+      <span style="font-size:11px;color:var(--text-muted)">${d.tags.goOut ? '🚗' : '🏠'} ${d.tags.location === 'indoor' ? '🏠' : d.tags.location === 'outdoor' ? '🌳' : '🔄'} ${d.tags.physical ? '💪' : '🛋️'} ${d.tags.social === 'couple' ? '💑' : d.tags.social === 'friends' ? '👥' : '🔄'}</span>
+      <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openEditDateIdeaModal('${d.id}')">✎</button>
+      <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="if(confirm('Delete «${esc(d.name)}»?'))deleteDateIdea('${d.id}')">✕</button>
+    </div>`).join('');
+  html += `</div></div>`;
+
+  return html;
+}
+
+async function scheduleDateIdea(name) {
+  const familyRoot = state.categories.find(c => c.name === 'Family' && c.parentId === null);
+  openAddTaskModal(name, null, null, { categoryId: familyRoot ? familyRoot.id : null, area: 'family' });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FINANCE MODULE
+// ═══════════════════════════════════════════════════════════════
+let financeTab = 'month';
+let financeMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+function getFinance() { return state.settings.finance || state.settings._finance || { partners:{a:{name:''},b:{name:''}}, accounts:[], discretionarySplit:{enabled:{a:false,b:false},buckets:[]}, wishlistLists:[] }; }
+function saveFinance(f) { state.settings.finance = f; return saveProfile({ finance: f }); }
+
+function switchFinanceTab(tab) {
+  financeTab = tab;
+  document.querySelectorAll('.finance-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  renderFinance();
+}
+
+function renderFinance() {
+  const el = document.getElementById('finance-content');
+  if (!el) return;
+  if (financeTab === 'month') renderFinanceMonth(el);
+  else if (financeTab === 'wishlist') renderWishlist(el);
+  else renderFinanceSettings(el);
+}
+
+// ─── Finance Settings ────────────────────────────────────────
+function renderFinanceSettings(el) {
+  const f = getFinance();
+  const pa = f.partners?.a?.name || '';
+  const pb = f.partners?.b?.name || '';
+
+  let html = `<div class="finance-section">
+    <div class="finance-section-title">Partners</div>
+    <div class="finance-partners-row">
+      <div class="finance-partner-field">
+        <label>Partner A</label>
+        <input type="text" class="fin-input" value="${esc(pa)}" placeholder="Name A" onchange="updateFinancePartner('a', this.value)">
+      </div>
+      <div class="finance-partner-field">
+        <label>Partner B</label>
+        <input type="text" class="fin-input" value="${esc(pb)}" placeholder="Name B" onchange="updateFinancePartner('b', this.value)">
+      </div>
+    </div>
+  </div>`;
+
+  // Accounts
+  const accounts = f.accounts || [];
+  html += `<div class="finance-section">
+    <div class="finance-section-title">Accounts <button class="btn btn-sm btn-ghost" onclick="openAddFinanceAccount()">+ Add</button></div>
+    <div class="finance-accounts-list">`;
+  if (!accounts.length) {
+    html += `<div class="empty-state" style="padding:12px 0;font-size:13px">No accounts yet. Add your bank accounts.</div>`;
+  } else {
+    accounts.forEach(a => {
+      const ownerLabel = a.owner === 'joint' ? 'Joint' : (f.partners?.[a.owner]?.name || a.owner);
+      html += `<div class="finance-account-row">
+        <span class="fin-icon">🏦</span>
+        <span class="fin-label">${esc(a.name)}</span>
+        <span class="fin-badge">${esc(ownerLabel)}</span>
+        <button class="btn-icon" onclick="openEditFinanceAccount('${a.id}')">✏️</button>
+        <button class="btn-icon" onclick="deleteFinanceAccount('${a.id}')">🗑️</button>
+      </div>`;
+    });
+  }
+  html += `</div></div>`;
+
+  // Discretionary split
+  const ds = f.discretionarySplit || { enabled:{a:false,b:false}, buckets:[] };
+  html += `<div class="finance-section">
+    <div class="finance-section-title">Discretionary Split (Remaining Budget)</div>`;
+  ['a','b'].forEach(k => {
+    const name = f.partners?.[k]?.name || k.toUpperCase();
+    html += `<label class="fin-toggle-row">
+      <input type="checkbox" ${ds.enabled?.[k] ? 'checked' : ''} onchange="toggleDiscretionary('${k}', this.checked)">
+      <span>${esc(name)} — split remaining into buckets</span>
+    </label>`;
+  });
+  const buckets = ds.buckets || [];
+  html += `<div class="finance-buckets">`;
+  buckets.forEach((b, i) => {
+    html += `<div class="finance-bucket-row">
+      <input type="text" class="fin-input fin-input-sm" value="${esc(b.name)}" placeholder="Bucket name" onchange="updateBucket(${i}, 'name', this.value)">
+      <input type="number" class="fin-input fin-input-xs" value="${Math.round(b.ratio*100)}" min="0" max="100" onchange="updateBucket(${i}, 'ratio', this.value)">
+      <span class="fin-pct">%</span>
+      <button class="btn-icon" onclick="removeBucket(${i})">✕</button>
+    </div>`;
+  });
+  const totalPct = buckets.reduce((s,b) => s + (b.ratio||0)*100, 0);
+  if (buckets.length) {
+    html += `<div class="fin-ratio-total ${totalPct === 100 ? 'valid' : 'invalid'}">Total: ${totalPct}%${totalPct !== 100 ? ' (must be 100%)' : ' ✓'}</div>`;
+  }
+  html += `<button class="btn btn-sm btn-ghost" onclick="addBucket()">+ Add Bucket</button>`;
+  html += `</div></div>`;
+
+  el.innerHTML = html;
+}
+
+async function updateFinancePartner(who, name) {
+  const f = getFinance();
+  if (!f.partners) f.partners = { a:{name:''}, b:{name:''} };
+  f.partners[who].name = name;
+  await saveFinance(f);
+}
+
+function openAddFinanceAccount() {
+  const f = getFinance();
+  openModal({
+    title: 'Add Account',
+    fields: [
+      { name:'name', label:'Account Name', required:true, placeholder:'e.g. BNP, Revolut' },
+      { name:'owner', label:'Owner', type:'select', options:[ ['a', f.partners?.a?.name || 'A'], ['b', f.partners?.b?.name || 'B'], ['joint', 'Joint'] ] }
+    ],
+    submit: 'Add Account',
+    onSubmit: async (vals) => {
+      const f = getFinance();
+      if (!f.accounts) f.accounts = [];
+      f.accounts.push({ id: uid(), name: vals.name, owner: vals.owner });
+      await saveFinance(f);
+      renderFinance();
+    }
+  });
+}
+
+function openEditFinanceAccount(id) {
+  const f = getFinance();
+  const acc = (f.accounts||[]).find(a => a.id === id);
+  if (!acc) return;
+  openModal({
+    title: 'Edit Account',
+    fields: [
+      { name:'name', label:'Account Name', required:true, value: acc.name },
+      { name:'owner', label:'Owner', type:'select', value: acc.owner, options:[ ['a', f.partners?.a?.name || 'A'], ['b', f.partners?.b?.name || 'B'], ['joint', 'Joint'] ] }
+    ],
+    submit: 'Save',
+    onSubmit: async (vals) => {
+      const f = getFinance();
+      const a = (f.accounts||[]).find(x => x.id === id);
+      if (a) { a.name = vals.name; a.owner = vals.owner; }
+      await saveFinance(f);
+      renderFinance();
+    }
+  });
+}
+
+async function deleteFinanceAccount(id) {
+  if (!confirm('Delete this account?')) return;
+  const f = getFinance();
+  f.accounts = (f.accounts||[]).filter(a => a.id !== id);
+  await saveFinance(f);
+  renderFinance();
+}
+
+async function toggleDiscretionary(who, on) {
+  const f = getFinance();
+  if (!f.discretionarySplit) f.discretionarySplit = { enabled:{a:false,b:false}, buckets:[] };
+  f.discretionarySplit.enabled[who] = on;
+  await saveFinance(f);
+}
+
+function addBucket() {
+  openModal({
+    title: 'Add Bucket',
+    fields: [
+      { name:'name', label:'Bucket Name', required:true, placeholder:'e.g. Investment, Fun' },
+      { name:'ratio', label:'Ratio (%)', type:'number', required:true, placeholder:'e.g. 30' }
+    ],
+    submit: 'Add',
+    onSubmit: async (vals) => {
+      const f = getFinance();
+      if (!f.discretionarySplit) f.discretionarySplit = { enabled:{a:false,b:false}, buckets:[] };
+      f.discretionarySplit.buckets.push({ name: vals.name, ratio: Number(vals.ratio) / 100 });
+      await saveFinance(f);
+      renderFinance();
+    }
+  });
+}
+
+function removeBucket(i) {
+  const f = getFinance();
+  (f.discretionarySplit?.buckets||[]).splice(i, 1);
+  saveFinance(f).then(() => renderFinance());
+}
+
+async function updateBucket(i, field, val) {
+  const f = getFinance();
+  const b = (f.discretionarySplit?.buckets||[])[i];
+  if (!b) return;
+  b[field] = field === 'ratio' ? Number(val) / 100 : val;
+  await saveFinance(f);
+  renderFinance();
+}
+
+// ─── Finance Month ───────────────────────────────────────────
+function getOrCreateFinanceMonth(id) {
+  let m = state.financeMonths.find(x => x.id === id);
+  if (!m) {
+    m = { id, revenus:{ a:{income:0,previousSavings:0}, b:{income:0,previousSavings:0} }, sharedExpenses:[], individualExpenses:{ a:[], b:[] }, createdAt: Date.now() };
+  }
+  return m;
+}
+
+function renderFinanceMonth(el) {
+  const f = getFinance();
+  const m = getOrCreateFinanceMonth(financeMonth);
+  const pa = f.partners?.a?.name || 'A';
+  const pb = f.partners?.b?.name || 'B';
+  const [y, mo] = financeMonth.split('-');
+  const monthLabel = `${MONTH_NAMES[parseInt(mo)-1]} ${y}`;
+
+  // Summary cards
+  const calc = calcFinanceMonth(m, f);
+  let html = `<div class="finance-month-nav">
+    <button class="btn btn-ghost btn-sm" onclick="changeFinanceMonth(-1)">← Prev</button>
+    <span class="finance-month-label">${monthLabel}</span>
+    <button class="btn btn-ghost btn-sm" onclick="changeFinanceMonth(1)">Next →</button>
+  </div>`;
+
+  // Overview cards
+  html += `<div class="finance-overview">
+    <div class="fin-card fin-card-total">
+      <div class="fin-card-label">Total Expenses</div>
+      <div class="fin-card-num">${fmtMoney(calc.totalDepensesGlobale)}</div>
+    </div>
+    <div class="fin-card fin-card-green">
+      <div class="fin-card-label">${esc(pa)}'s Rest</div>
+      <div class="fin-card-num">${fmtMoney(calc.restes.a)}</div>
+    </div>
+    <div class="fin-card fin-card-blue">
+      <div class="fin-card-label">${esc(pb)}'s Rest</div>
+      <div class="fin-card-num">${fmtMoney(calc.restes.b)}</div>
+    </div>
+  </div>`;
+
+  // Reconciliation summary
+  if (calc.reconciliation.length) {
+    html += `<div class="finance-section">
+      <div class="finance-section-title">🔄 Reconciliation</div>
+      <div class="finance-recon-list">`;
+    calc.reconciliation.forEach(r => {
+      html += `<div class="fin-recon-item">${esc(r.text)}</div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Revenues
+  html += `<div class="finance-section">
+    <div class="finance-section-title">💰 Revenues</div>
+    <div class="finance-revenues">
+      ${['a','b'].map(k => {
+        const name = k === 'a' ? pa : pb;
+        const rev = m.revenus?.[k] || {income:0,previousSavings:0};
+        return `<div class="finance-revenue-card">
+          <div class="fin-rev-name">${esc(name)}</div>
+          <div class="fin-rev-field">
+            <label>Monthly Income</label>
+            <input type="number" class="fin-input" value="${rev.income||0}" onchange="updateFinanceRevenue('${k}','income',this.value)">
+          </div>
+          <div class="fin-rev-field">
+            <label>Previous Savings</label>
+            <input type="number" class="fin-input" value="${rev.previousSavings||0}" onchange="updateFinanceRevenue('${k}','previousSavings',this.value)">
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  // Shared Expenses
+  html += `<div class="finance-section">
+    <div class="finance-section-title">🤝 Shared Expenses <button class="btn btn-sm btn-ghost" onclick="openAddSharedExpense()">+ Add</button></div>
+    ${renderExpenseList(m.sharedExpenses || [], 'shared', f)}
+  </div>`;
+
+  // Individual Expenses A
+  html += `<div class="finance-section">
+    <div class="finance-section-title">👤 ${esc(pa)}'s Expenses <button class="btn btn-sm btn-ghost" onclick="openAddIndividualExpense('a')">+ Add</button></div>
+    ${renderExpenseList(m.individualExpenses?.a || [], 'individual-a', f)}
+  </div>`;
+
+  // Individual Expenses B
+  html += `<div class="finance-section">
+    <div class="finance-section-title">👤 ${esc(pb)}'s Expenses <button class="btn btn-sm btn-ghost" onclick="openAddIndividualExpense('b')">+ Add</button></div>
+    ${renderExpenseList(m.individualExpenses?.b || [], 'individual-b', f)}
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function renderExpenseList(expenses, type, f) {
+  if (!expenses.length) return '<div class="empty-state" style="padding:8px 0;font-size:13px">No expenses.</div>';
+  return `<div class="finance-expense-list">` + expenses.map(e => {
+    let extra = '';
+    if (type === 'shared') {
+      const acc = (f.accounts||[]).find(a => a.id === e.account);
+      extra = `<span class="fin-badge">${esc(acc?.name || '—')}</span><span class="fin-badge ${e.type==='fixed'?'fin-badge-red':'fin-badge-orange'}">${e.type==='fixed'?'Fixed':'Variable'}</span>`;
+    }
+    return `<div class="finance-expense-row">
+      <span class="fin-label">${esc(e.name)}</span>
+      <span class="fin-amount">${fmtMoney(e.amount)}</span>
+      ${extra}
+      <button class="btn-icon" onclick="openEditExpense('${type}','${e.id}')">✏️</button>
+      <button class="btn-icon" onclick="deleteExpense('${type}','${e.id}')">🗑️</button>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function fmtMoney(v) { return (Number(v)||0).toLocaleString('fr-FR', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' €'; }
+
+function changeFinanceMonth(delta) {
+  const [y, m] = financeMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  financeMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderFinance();
+}
+
+async function updateFinanceRevenue(who, field, val) {
+  const m = getOrCreateFinanceMonth(financeMonth);
+  if (!m.revenus) m.revenus = { a:{income:0,previousSavings:0}, b:{income:0,previousSavings:0} };
+  if (!m.revenus[who]) m.revenus[who] = {income:0,previousSavings:0};
+  m.revenus[who][field] = Number(val) || 0;
+  // Upsert into state
+  const idx = state.financeMonths.findIndex(x => x.id === financeMonth);
+  if (idx >= 0) state.financeMonths[idx] = m; else state.financeMonths.push(m);
+  await saveDoc('financeMonths', financeMonth, m);
+}
+
+function openAddSharedExpense() {
+  const f = getFinance();
+  openModal({
+    title: 'Add Shared Expense',
+    fields: [
+      { name:'name', label:'Name', required:true, placeholder:'e.g. Rent, Groceries' },
+      { name:'amount', label:'Amount (€)', type:'number', required:true },
+      { name:'account', label:'Account', type:'select', options: (f.accounts||[]).map(a => [a.id, a.name]) },
+      { name:'type', label:'Type', type:'select', options: [['fixed','Fixed'],['variable','Variable']] }
+    ],
+    submit: 'Add',
+    onSubmit: async (vals) => {
+      const m = getOrCreateFinanceMonth(financeMonth);
+      if (!m.sharedExpenses) m.sharedExpenses = [];
+      m.sharedExpenses.push({ id: uid(), name: vals.name, amount: Number(vals.amount), account: vals.account, type: vals.type });
+      const idx = state.financeMonths.findIndex(x => x.id === financeMonth);
+      if (idx >= 0) state.financeMonths[idx] = m; else state.financeMonths.push(m);
+      await saveDoc('financeMonths', financeMonth, m);
+      renderFinance();
+    }
+  });
+}
+
+function openAddIndividualExpense(who) {
+  openModal({
+    title: `Add Expense`,
+    fields: [
+      { name:'name', label:'Name', required:true, placeholder:'e.g. Lunch, Transport' },
+      { name:'amount', label:'Amount (€)', type:'number', required:true }
+    ],
+    submit: 'Add',
+    onSubmit: async (vals) => {
+      const m = getOrCreateFinanceMonth(financeMonth);
+      if (!m.individualExpenses) m.individualExpenses = { a:[], b:[] };
+      if (!m.individualExpenses[who]) m.individualExpenses[who] = [];
+      m.individualExpenses[who].push({ id: uid(), name: vals.name, amount: Number(vals.amount) });
+      const idx = state.financeMonths.findIndex(x => x.id === financeMonth);
+      if (idx >= 0) state.financeMonths[idx] = m; else state.financeMonths.push(m);
+      await saveDoc('financeMonths', financeMonth, m);
+      renderFinance();
+    }
+  });
+}
+
+function openEditExpense(type, id) {
+  const m = getOrCreateFinanceMonth(financeMonth);
+  const f = getFinance();
+  let exp;
+  if (type === 'shared') exp = (m.sharedExpenses||[]).find(e => e.id === id);
+  else if (type === 'individual-a') exp = (m.individualExpenses?.a||[]).find(e => e.id === id);
+  else exp = (m.individualExpenses?.b||[]).find(e => e.id === id);
+  if (!exp) return;
+
+  const fields = [
+    { name:'name', label:'Name', required:true, value: exp.name },
+    { name:'amount', label:'Amount (€)', type:'number', required:true, value: exp.amount }
+  ];
+  if (type === 'shared') {
+    fields.push({ name:'account', label:'Account', type:'select', value: exp.account, options: (f.accounts||[]).map(a => [a.id, a.name]) });
+    fields.push({ name:'type', label:'Type', type:'select', value: exp.type, options: [['fixed','Fixed'],['variable','Variable']] });
+  }
+
+  openModal({
+    title: 'Edit Expense',
+    fields,
+    submit: 'Save',
+    onSubmit: async (vals) => {
+      exp.name = vals.name;
+      exp.amount = Number(vals.amount);
+      if (type === 'shared') { exp.account = vals.account; exp.type = vals.type; }
+      const idx = state.financeMonths.findIndex(x => x.id === financeMonth);
+      if (idx >= 0) state.financeMonths[idx] = m; else state.financeMonths.push(m);
+      await saveDoc('financeMonths', financeMonth, m);
+      renderFinance();
+    }
+  });
+}
+
+async function deleteExpense(type, id) {
+  if (!confirm('Delete this expense?')) return;
+  const m = getOrCreateFinanceMonth(financeMonth);
+  if (type === 'shared') m.sharedExpenses = (m.sharedExpenses||[]).filter(e => e.id !== id);
+  else if (type === 'individual-a') m.individualExpenses.a = (m.individualExpenses?.a||[]).filter(e => e.id !== id);
+  else m.individualExpenses.b = (m.individualExpenses?.b||[]).filter(e => e.id !== id);
+  const idx = state.financeMonths.findIndex(x => x.id === financeMonth);
+  if (idx >= 0) state.financeMonths[idx] = m; else state.financeMonths.push(m);
+  await saveDoc('financeMonths', financeMonth, m);
+  renderFinance();
+}
+
+// ─── Finance Calculations ────────────────────────────────────
+function calcFinanceMonth(m, f) {
+  const revA = Number(m.revenus?.a?.income) || 0;
+  const revB = Number(m.revenus?.b?.income) || 0;
+  const savA = Number(m.revenus?.a?.previousSavings) || 0;
+  const savB = Number(m.revenus?.b?.previousSavings) || 0;
+  const totalRevenus = revA + revB;
+  const prorataA = totalRevenus > 0 ? revA / totalRevenus : 0.5;
+  const prorataB = 1 - prorataA;
+
+  const shared = m.sharedExpenses || [];
+  let totalSharedFixed = 0, totalSharedVariable = 0;
+  const splitDetails = [];
+  shared.forEach(e => {
+    const amt = Number(e.amount) || 0;
+    const partA = amt * prorataA;
+    const partB = amt * prorataB;
+    if (e.type === 'fixed') totalSharedFixed += amt; else totalSharedVariable += amt;
+    splitDetails.push({ ...e, partA, partB });
+  });
+  const totalShared = totalSharedFixed + totalSharedVariable;
+
+  const indA = (m.individualExpenses?.a || []).reduce((s,e) => s + (Number(e.amount)||0), 0);
+  const indB = (m.individualExpenses?.b || []).reduce((s,e) => s + (Number(e.amount)||0), 0);
+  const totalDepensesGlobale = totalShared + indA + indB;
+
+  const restA = revA + savA - (totalShared * prorataA) - indA;
+  const restB = revB + savB - (totalShared * prorataB) - indB;
+
+  // Discretionary split
+  const discretionary = { a: [], b: [] };
+  const ds = f.discretionarySplit || { enabled:{}, buckets:[] };
+  ['a','b'].forEach(k => {
+    if (ds.enabled?.[k]) {
+      const rest = k === 'a' ? restA : restB;
+      (ds.buckets||[]).forEach(b => {
+        discretionary[k].push({ name: b.name, amount: rest * (b.ratio||0), ratio: b.ratio });
+      });
+    }
+  });
+
+  // Reconciliation
+  const reconciliation = [];
+  const accounts = f.accounts || [];
+  const accountTotals = {};  // accountId -> { aOwes: 0, bOwes: 0 }
+
+  splitDetails.forEach(sd => {
+    if (!sd.account) return;
+    if (!accountTotals[sd.account]) accountTotals[sd.account] = { aOwes: 0, bOwes: 0 };
+    const acc = accounts.find(a => a.id === sd.account);
+    if (!acc) return;
+    if (acc.owner === 'joint') {
+      accountTotals[sd.account].aOwes += sd.partA;
+      accountTotals[sd.account].bOwes += sd.partB;
+    } else if (acc.owner === 'a') {
+      accountTotals[sd.account].bOwes += sd.partB;  // B owes A
+    } else {
+      accountTotals[sd.account].aOwes += sd.partA;  // A owes B
+    }
+  });
+
+  let netAtoB = 0;
+  Object.entries(accountTotals).forEach(([accId, tot]) => {
+    const acc = accounts.find(a => a.id === accId);
+    if (!acc) return;
+    if (acc.owner === 'joint') {
+      if (tot.aOwes > 0) reconciliation.push({ text: `Transfer ${fmtMoney(tot.aOwes)} to ${esc(acc.name)} (from ${esc(f.partners?.a?.name||'A')})` });
+      if (tot.bOwes > 0) reconciliation.push({ text: `Transfer ${fmtMoney(tot.bOwes)} to ${esc(acc.name)} (from ${esc(f.partners?.b?.name||'B')})` });
+    } else {
+      const ownerName = f.partners?.[acc.owner]?.name || acc.owner.toUpperCase();
+      const otherName = f.partners?.[acc.owner === 'a' ? 'b' : 'a']?.name || (acc.owner === 'a' ? 'B' : 'A');
+      const amount = acc.owner === 'a' ? tot.bOwes : tot.aOwes;
+      if (amount > 0) {
+        reconciliation.push({ text: `Transfer ${fmtMoney(amount)} to ${esc(ownerName)} on ${esc(acc.name)} (from ${esc(otherName)})` });
+        if (acc.owner === 'a') netAtoB -= amount; else netAtoB += amount;
+      }
+    }
+  });
+
+  if (netAtoB !== 0) {
+    const aName = f.partners?.a?.name || 'A';
+    const bName = f.partners?.b?.name || 'B';
+    if (netAtoB > 0) reconciliation.push({ text: `Net: ${esc(aName)} owes ${fmtMoney(netAtoB)} to ${esc(bName)}` });
+    else reconciliation.push({ text: `Net: ${esc(bName)} owes ${fmtMoney(-netAtoB)} to ${esc(aName)}` });
+  }
+
+  return { totalRevenus, prorataA, prorataB, totalSharedFixed, totalSharedVariable, totalShared, indA, indB, totalDepensesGlobale, restes:{ a: restA, b: restB }, discretionary, reconciliation, splitDetails };
+}
+
+// ─── Wishlist ────────────────────────────────────────────────
+function renderWishlist(el) {
+  const f = getFinance();
+  const items = state.wishlist || [];
+  const listNames = [...new Set([...(f.wishlistLists||[]), ...items.map(i=>i.list)].filter(Boolean))];
+
+  let html = `<div class="finance-section">
+    <div class="finance-section-title">Wishlist <button class="btn btn-sm btn-ghost" onclick="openAddWishlistItem()">+ Add Item</button></div>`;
+
+  if (!items.length) {
+    html += `<div class="empty-state" style="padding:20px 0">No wishlist items yet. Add something you want to save for!</div>`;
+  } else {
+    const grouped = {};
+    items.forEach(i => { const key = i.list || 'General'; if (!grouped[key]) grouped[key] = []; grouped[key].push(i); });
+
+    Object.entries(grouped).forEach(([listName, listItems]) => {
+      html += `<div class="wishlist-group">
+        <div class="wishlist-group-title">${esc(listName)}</div>`;
+      listItems.forEach(item => {
+        const pct = item.price > 0 ? Math.min(100, Math.round((item.saved || 0) / item.price * 100)) : 0;
+        html += `<div class="wishlist-item">
+          <div class="wishlist-item-header">
+            <span class="wishlist-item-name">${esc(item.name)}</span>
+            <span class="wishlist-item-price">${fmtMoney(item.saved||0)} / ${fmtMoney(item.price)}</span>
+          </div>
+          <div class="wishlist-bar"><div class="wishlist-bar-fill" style="width:${pct}%"></div></div>
+          ${item.link ? `<a href="${esc(item.link)}" target="_blank" class="wishlist-link">🔗 Link</a>` : ''}
+          <div class="wishlist-actions">
+            <button class="btn btn-sm btn-ghost" onclick="openEditWishlistItem('${item.id}')">✏️</button>
+            <button class="btn btn-sm btn-ghost" onclick="deleteWishlistItem('${item.id}')">🗑️</button>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function openAddWishlistItem() {
+  const f = getFinance();
+  const listNames = [...new Set([...(f.wishlistLists||[]), ...(state.wishlist||[]).map(i=>i.list)].filter(Boolean))];
+  openModal({
+    title: 'Add Wishlist Item',
+    fields: [
+      { name:'list', label:'List', type:'select', options: listNames.map(n => [n,n]) },
+      { name:'name', label:'Name', required:true, placeholder:'e.g. Running shoes' },
+      { name:'price', label:'Price (€)', type:'number', required:true },
+      { name:'saved', label:'Saved so far (€)', type:'number' },
+      { name:'link', label:'Link (optional)', placeholder:'https://...' }
+    ],
+    submit: 'Add',
+    onSubmit: async (vals) => {
+      const item = { id: uid(), list: vals.list, name: vals.name, price: Number(vals.price), saved: Number(vals.saved)||0, link: vals.link, createdAt: Date.now() };
+      state.wishlist.push(item);
+      await saveDoc('wishlist', item.id, item);
+      renderFinance();
+    }
+  });
+}
+
+function openEditWishlistItem(id) {
+  const item = (state.wishlist||[]).find(i => i.id === id);
+  if (!item) return;
+  const f = getFinance();
+  const listNames = [...new Set([...(f.wishlistLists||[]), ...(state.wishlist||[]).map(i=>i.list)].filter(Boolean))];
+  openModal({
+    title: 'Edit Wishlist Item',
+    fields: [
+      { name:'list', label:'List', type:'select', value: item.list, options: listNames.map(n => [n,n]) },
+      { name:'name', label:'Name', required:true, value: item.name },
+      { name:'price', label:'Price (€)', type:'number', required:true, value: item.price },
+      { name:'saved', label:'Saved so far (€)', type:'number', value: item.saved },
+      { name:'link', label:'Link (optional)', value: item.link || '' }
+    ],
+    submit: 'Save',
+    onSubmit: async (vals) => {
+      item.list = vals.list; item.name = vals.name; item.price = Number(vals.price); item.saved = Number(vals.saved)||0; item.link = vals.link;
+      await saveDoc('wishlist', id, item);
+      renderFinance();
+    }
+  });
+}
+
+async function deleteWishlistItem(id) {
+  if (!confirm('Delete this item?')) return;
+  state.wishlist = (state.wishlist||[]).filter(i => i.id !== id);
+  await deleteDoc('wishlist', id);
+  renderFinance();
+}
+
+// ─── Finance placeholder for category tree ───────────────────
+function buildFinancePlaceholder(cat) {
+  return `<div class="cat-content">
+    <div class="empty-state" style="padding:40px 0">
+      <div class="empty-icon">📊</div>
+      <p>Suivi financier</p>
+      <small>Go to <span style="color:var(--accent-light);cursor:pointer" onclick="goTo('finance')">Finance view</span> to manage your budget.</small>
+    </div>
+  </div>`;
+}
+
+// ─── Seed categories on first launch ─────────────────────────
+async function seedInitialCategories() {
+  if (state.categories.length > 0) return; // already seeded
+
+  const seeds = [
+    // Family tree
+    { name: 'Family', icon: '👨‍👩‍👧', parentId: null, moduleType: 'generic', order: 0 },
+    { name: 'House', icon: '🏠', parentRef: 'Family', moduleType: 'generic', order: 0 },
+    { name: 'Meal', icon: '🍽️', parentRef: 'Family', moduleType: 'meals', order: 1 },
+    { name: 'Baby', icon: '👶', parentRef: 'Family', moduleType: 'generic', order: 2 },
+    { name: 'Wife', icon: '❤️', parentRef: 'Family', moduleType: 'generic', order: 3 },
+    { name: 'Dates', icon: '🌹', parentRef: 'Wife', moduleType: 'dateIdeas', order: 0 },
+
+    // Growth tree
+    { name: 'Growth', icon: '🌱', parentId: null, moduleType: 'generic', order: 1 },
+    { name: 'Video games', icon: '🎮', parentRef: 'Growth', moduleType: 'generic', order: 0 },
+    { name: 'Chess', icon: '♟️', parentRef: 'Growth', moduleType: 'generic', order: 1 },
+    { name: 'Soccer', icon: '⚽', parentRef: 'Growth', moduleType: 'generic', order: 2 },
+    { name: 'Art', icon: '🎨', parentRef: 'Growth', moduleType: 'generic', order: 3 },
+    { name: 'Comedy', icon: '😂', parentRef: 'Growth', moduleType: 'generic', order: 4 },
+
+    // Career (empty root)
+    { name: 'Career', icon: '💼', parentId: null, moduleType: 'generic', order: 2 },
+
+    // Finance
+    { name: 'Finance', icon: '💰', parentId: null, moduleType: 'finance-table', order: 3 }
+  ];
+
+  const created = {};
+  for (const s of seeds) {
+    const id = uid();
+    const parentId = s.parentRef ? created[s.parentRef] : (s.parentId || null);
+    const moduleType = s.moduleType || 'generic';
+    const isGeneric = moduleType === 'generic';
+    const data = {
+      id, name: s.name, icon: s.icon || '', color: '',
+      parentId, moduleType,
+      tabs: isGeneric ? [
+        { id: uid(), type: 'tasks', label: '☑️ Tasks' },
+        { id: uid(), type: 'goals', label: '🎯 Goals' },
+        { id: uid(), type: 'habits', label: '🔥 Habits' }
+      ] : [],
+      order: s.order || 0, createdAt: Date.now()
+    };
+    state.categories.push(data);
+    await saveDoc('categories', id, data);
+    created[s.name] = id;
+  }
+  toast('Initial categories created! 🌳', 'success');
+  renderSidebarCategories();
 }
 
 // ═══════════════════════════════════════════════════════════════

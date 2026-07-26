@@ -307,53 +307,59 @@
         <div class="sidebar-logo-name">Second<span>Brain</span></div>
       </div>
 
-      <span class="sidebar-section-label">Main</span>
+      <!-- Static nav items -->
       <button class="nav-btn active" data-view="dashboard" id="nav-dashboard">
         <span class="nav-icon">🏠</span> Dashboard
       </button>
-      <button class="nav-btn" data-view="inbox" id="nav-inbox">
-        <span class="nav-icon">📥</span> Inbox
-        <span class="nav-badge" id="inbox-badge" style="display:none">0</span>
+      <button class="nav-btn" data-view="journal" id="nav-journal">
+        <span class="nav-icon">✍️</span> Journal
       </button>
-
-      <span class="sidebar-section-label">Focus</span>
-      <button class="nav-btn" data-view="tasks" id="nav-tasks">
-        <span class="nav-icon">☑️</span> Tasks
-      </button>
-      <button class="nav-btn" data-view="sprint" id="nav-sprint">
-        <span class="nav-icon">🚀</span> 3-Month Sprint
-      </button>
-
-      <span class="sidebar-section-label">Knowledge</span>
-      <button class="nav-btn" data-view="notes" id="nav-notes">
-        <span class="nav-icon">📝</span> Notes
+      <button class="nav-btn" data-view="calendar" id="nav-calendar">
+        <span class="nav-icon">📅</span> Calendar
       </button>
       <button class="nav-btn" data-view="documents" id="nav-documents">
         <span class="nav-icon">📁</span> Documents
       </button>
 
-      <span class="sidebar-section-label">Life</span>
-      <button class="nav-btn" data-view="calendar" id="nav-calendar">
-        <span class="nav-icon">📅</span> Calendar
-      </button>
-      <button class="nav-btn" data-view="goals" id="nav-goals">
-        <span class="nav-icon">🎯</span> Goals & Habits
-      </button>
-      <button class="nav-btn" data-view="journal" id="nav-journal">
-        <span class="nav-icon">✍️</span> Journal
-      </button>
-      <button class="nav-btn" data-view="family" id="nav-family">
-        <span class="nav-icon">👨‍👩‍👧</span> Family Mode
-      </button>
-      <button class="nav-btn" data-view="areas" id="nav-areas">
-        <span class="nav-icon">🗺️</span> Life Areas
-      </button>
-      <button class="nav-btn" data-view="timeaudit" id="nav-timeaudit">
-        <span class="nav-icon">⏱️</span> Time Audit
-      </button>
-      <button class="nav-btn" data-view="wins" id="nav-wins">
-        <span class="nav-icon">🏆</span> Wins Log
-      </button>
+      <!-- Suivi accordion (fixed) -->
+      <div class="sidebar-cat-node">
+        <div class="sidebar-cat-row" onclick="toggleSuiviExpand()" id="suivi-root-row">
+          <span class="sidebar-cat-chevron" id="suivi-chevron">▶</span>
+          <span class="sidebar-cat-label">
+            <span class="sidebar-cat-icon">📊</span>
+            <span class="sidebar-cat-name">Suivi</span>
+          </span>
+        </div>
+        <div class="sidebar-cat-children" id="suivi-children" style="display:none">
+          <div class="sidebar-cat-row" onclick="goTo('goals')" style="padding-left:32px">
+            <span class="sidebar-cat-label">
+              <span class="sidebar-cat-icon">📋</span>
+              <span class="sidebar-cat-name">Tasks / Goals / Habits</span>
+            </span>
+          </div>
+          <div class="sidebar-cat-row" onclick="goTo('sprint')" style="padding-left:32px">
+            <span class="sidebar-cat-label">
+              <span class="sidebar-cat-icon">🚀</span>
+              <span class="sidebar-cat-name">3-Month Sprint</span>
+            </span>
+          </div>
+          <div class="sidebar-cat-row" onclick="goTo('wins')" style="padding-left:32px">
+            <span class="sidebar-cat-label">
+              <span class="sidebar-cat-icon">🏆</span>
+              <span class="sidebar-cat-name">Wins</span>
+            </span>
+          </div>
+          <div class="sidebar-cat-row" onclick="goTo('timeaudit')" style="padding-left:32px">
+            <span class="sidebar-cat-label">
+              <span class="sidebar-cat-icon">⏱️</span>
+              <span class="sidebar-cat-name">Time Logs</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic category roots (accordion) -->
+      <div id="sidebar-categories"></div>
 
       <div class="sidebar-footer">
         <div class="sidebar-user" id="sidebar-user">
@@ -408,19 +414,6 @@
               </div>
             </div>
 
-            <!-- Time awareness ring -->
-            <div class="card time-ring-card">
-              <div class="card-label">Day Progress</div>
-              <div class="time-ring-wrap" id="time-ring-wrap">
-                <!-- Rendered by JS -->
-              </div>
-              <div style="text-align:center">
-                <div style="font-size:22px; font-weight:800; color: var(--accent-light)" id="time-ring-pct">—%</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:2px" id="time-ring-label">of day elapsed
-                </div>
-              </div>
-            </div>
-
             <!-- Stats row -->
             <div class="stats-row">
               <div class="card stat-card">
@@ -435,6 +428,14 @@
                 <div class="stat-num yellow" id="stat-week-tasks">0</div>
                 <div class="stat-label">Tasks this week</div>
               </div>
+            </div>
+
+            <!-- Day progress ring -->
+            <div class="card" style="text-align:center">
+              <div class="card-label">Day Progress</div>
+              <div id="time-ring-pct" style="font-size:24px;font-weight:800;color:var(--accent)">0%</div>
+              <div id="time-ring-label" style="font-size:12px;color:var(--text-muted)">Starting your day</div>
+              <div id="time-ring-wrap"></div>
             </div>
 
             <!-- Family protected time -->
@@ -471,6 +472,12 @@
               </div>
             </div>
 
+            <!-- Achievements summary -->
+            <div class="card achievements-card" id="dash-achievements">
+              <div class="card-label">Your Achievements</div>
+              <div id="dash-achievements-content"></div>
+            </div>
+
           </div>
         </div><!-- /dashboard -->
 
@@ -497,11 +504,10 @@
             <button class="btn" id="add-task-btn">+ New Task</button>
           </div>
           <div class="area-filter-row" id="tasks-area-filter">
-            <button class="area-filter-btn active" data-area="all">All Areas</button>
+            <button class="area-filter-btn active" data-area="all">All</button>
             <button class="area-filter-btn family" data-area="family">👨‍👩‍👧 Family</button>
             <button class="area-filter-btn career" data-area="career">💼 Career</button>
             <button class="area-filter-btn growth" data-area="growth">🌱 Growth</button>
-            <button class="area-filter-btn health" data-area="health">💪 Health</button>
             <button class="area-filter-btn finance" data-area="finance">💰 Finance</button>
           </div>
           <div class="task-list" id="task-list"></div>
@@ -629,11 +635,29 @@
           </div>
         </div>
 
-        <!-- ─── GOALS & HABITS ─────────────────────────────── -->
+        <!-- ─── TASKS / GOALS / HABITS (3 tabs) ──────────────── -->
         <div class="view" id="view-goals">
-          <div class="view-tabs" style="margin-bottom:20px; display:inline-flex">
-            <button class="view-tab active" data-tab="goals" id="goals-tab">Goals</button>
-            <button class="view-tab" data-tab="habits" id="habits-tab">Habits</button>
+          <div class="view-tabs" style="margin-bottom:20px;display:inline-flex;flex-wrap:wrap;gap:4px" id="suivi-tab-bar"></div>
+
+          <!-- Tasks panel -->
+          <div id="tgh-tasks-panel" style="display:none">
+            <div class="tasks-toolbar">
+              <input type="text" id="tgh-task-search" placeholder="Search tasks…">
+              <div class="view-tabs" style="display:inline-flex">
+                <button class="view-tab active" data-tab="today" id="tgh-tasks-tab-today">Today</button>
+                <button class="view-tab" data-tab="upcoming" id="tgh-tasks-tab-upcoming">Upcoming</button>
+                <button class="view-tab" data-tab="all" id="tgh-tasks-tab-all">All</button>
+              </div>
+              <button class="btn" id="tgh-add-task-btn">+ New Task</button>
+            </div>
+            <div class="area-filter-row" id="tgh-tasks-area-filter">
+              <button class="area-filter-btn active" data-area="all">All</button>
+              <button class="area-filter-btn family" data-area="family">👨‍👩‍👧 Family</button>
+              <button class="area-filter-btn career" data-area="career">💼 Career</button>
+              <button class="area-filter-btn growth" data-area="growth">🌱 Growth</button>
+              <button class="area-filter-btn finance" data-area="finance">💰 Finance</button>
+            </div>
+            <div class="task-list" id="tgh-task-list"></div>
           </div>
 
           <!-- Goals panel -->
@@ -653,6 +677,11 @@
             </div>
             <div id="habits-list"></div>
           </div>
+
+          <!-- List panel (simple checklist) -->
+          <div id="suivi-list-panel" style="display:none">
+            <div id="suivi-list-content"></div>
+          </div>
         </div>
 
         <!-- ─── JOURNAL ────────────────────────────────────── -->
@@ -664,8 +693,15 @@
           </div>
 
           <div class="journal-section">
-            <div class="journal-section-label">☀️ Morning Intention</div>
-            <textarea id="journal-morning" placeholder="What's your intention for today?"></textarea>
+            <div class="journal-section-label">☀️ Morning</div>
+            <textarea id="journal-morning" placeholder="How did your morning go? Reflections, intentions, gratitude…"></textarea>
+            <div class="journal-auto-save" id="journal-morning-status"></div>
+          </div>
+
+          <div class="journal-section">
+            <div class="journal-section-label">🌤️ Afternoon</div>
+            <textarea id="journal-afternoon" placeholder="How is your day going? Wins, challenges, thoughts…"></textarea>
+            <div class="journal-auto-save" id="journal-afternoon-status"></div>
           </div>
 
           <div class="journal-section">
@@ -678,19 +714,6 @@
               </div>
             </div>
           </div>
-
-          <div class="journal-section">
-            <div class="journal-section-label">✍️ Free Writing</div>
-            <textarea id="journal-free" placeholder="Write anything… stream of consciousness, reflections, ideas."
-              style="min-height:160px"></textarea>
-          </div>
-
-          <div class="journal-section">
-            <div class="journal-section-label">🌙 Evening Reflection</div>
-            <textarea id="journal-evening" placeholder="How did today go?"></textarea>
-          </div>
-
-          <button class="btn" id="journal-save-btn" style="margin-top:8px">💾 Save Journal Entry</button>
         </div>
 
         <!-- ─── FAMILY MODE ────────────────────────────────── -->
@@ -704,44 +727,71 @@
             </div>
           </div>
 
-          <div class="section-header">
-            <div class="section-title">Protected Time Blocks</div>
-            <button class="btn" id="add-family-block-btn">+ Add Protected Time</button>
+          <div class="view-tabs" style="margin-bottom:20px; display:inline-flex">
+            <button class="view-tab active" data-tab="family-blocks" id="family-tab-blocks">Family</button>
+            <button class="view-tab" data-tab="baby" id="family-tab-baby">Baby</button>
+            <button class="view-tab" data-tab="meals" id="family-tab-meals">Meals</button>
           </div>
-          <div id="family-blocks-list"></div>
 
-          <div class="divider"></div>
+          <!-- Family Blocks panel -->
+          <div id="family-panel-blocks">
+            <div class="section-header">
+              <div class="section-title">Protected Time Blocks</div>
+              <button class="btn" id="add-family-block-btn">+ Add Protected Time</button>
+            </div>
+            <div id="family-blocks-list"></div>
 
-          <div class="section-header">
-            <div class="section-title">Baby Milestone Checklist</div>
+            <div class="divider"></div>
+
+            <div class="section-header">
+              <div class="section-title">Weekly Family Score</div>
+            </div>
+            <div class="family-score-wrap" id="family-score-wrap">
+              <div class="ring-container" id="family-score-ring"></div>
+              <div class="family-score-legend" id="family-score-legend"></div>
+            </div>
           </div>
-          <div class="baby-milestones" id="baby-milestones-list"></div>
 
-          <div class="divider"></div>
-
-          <div class="section-header">
-            <div class="section-title">Weekly Family Score</div>
+          <!-- Baby Milestones panel -->
+          <div id="family-panel-baby" style="display:none">
+            <div class="section-header">
+              <div class="section-title">Baby Milestone Checklist</div>
+            </div>
+            <div class="baby-milestones" id="baby-milestones-list"></div>
           </div>
-          <div class="family-score-wrap" id="family-score-wrap">
-            <div class="ring-container" id="family-score-ring"></div>
-            <div class="family-score-legend" id="family-score-legend"></div>
+
+          <!-- Meals panel -->
+          <div id="family-panel-meals" style="display:none">
+            <div class="section-header">
+              <div class="section-title">Recipes</div>
+              <button class="btn" id="add-recipe-btn">+ New Recipe</button>
+            </div>
+            <div id="recipes-list"></div>
+
+            <div class="divider"></div>
+
+            <div class="section-header">
+              <div class="section-title">Weekly Meal Plan</div>
+              <button class="btn btn-ghost" id="gen-grocery-btn">🛒 Generate Grocery List</button>
+            </div>
+            <div id="meal-plan-list"></div>
+
+            <div class="divider"></div>
+
+            <div id="grocery-list-container" style="display:none">
+              <div class="section-header">
+                <div class="section-title">Grocery List</div>
+              </div>
+              <div id="grocery-list"></div>
+            </div>
           </div>
         </div>
 
-        <!-- ─── LIFE AREAS ─────────────────────────────────── -->
-        <div class="view" id="view-areas">
-          <div class="section-header">
-            <div>
-              <div class="section-title">Life Areas Balance</div>
-              <div class="section-sub">Are you neglecting anything?</div>
-            </div>
-          </div>
-          <div class="areas-grid" id="areas-grid"></div>
-          <div class="divider"></div>
-          <div class="section-title" style="margin-bottom:16px">Balance Chart</div>
-          <div class="chart-wrap" style="max-width:500px">
-            <canvas id="areas-chart"></canvas>
-          </div>
+        <!-- ─── CATEGORY (filtered content) ────────────────── -->
+        <div class="view" id="view-category">
+          <div id="category-content"></div>
+          <div id="categories-tree" style="display:none"></div>
+          <div id="categories-content" style="display:none"></div>
         </div>
 
         <!-- ─── TIME AUDIT ─────────────────────────────────── -->
@@ -764,6 +814,7 @@
               <div class="audit-stat-label">Accuracy</div>
             </div>
           </div>
+          <div id="audit-cat-breakdown" style="margin:12px 0"></div>
           <div class="chart-wrap">
             <div class="card-label" style="margin-bottom:12px">Weekly Time Audit (estimated vs actual)</div>
             <canvas id="time-chart"></canvas>
@@ -781,15 +832,47 @@
           <div id="wins-list" class="wins-list"></div>
         </div>
 
+        <!-- ─── HOBBIES ────────────────────────────────────── -->
+        <div class="view" id="view-hobbies">
+          <div id="hobbies-list-view">
+            <div class="section-header">
+              <div class="section-title">My Hobbies</div>
+              <button class="btn" id="add-hobby-btn">+ New Hobby</button>
+            </div>
+            <div id="hobbies-list"></div>
+          </div>
+          <div id="hobby-detail-view" style="display:none">
+            <div class="section-header">
+              <div>
+                <button class="btn btn-ghost btn-sm" onclick="showHobbiesList()" style="margin-bottom:8px">← Back</button>
+                <div class="section-title" id="hobby-detail-name"></div>
+              </div>
+              <button class="btn" id="add-hobby-obj-btn">+ Add Objective</button>
+            </div>
+            <div id="hobby-objectives-list"></div>
+          </div>
+        </div>
+
+        <!-- ─── FINANCE ────────────────────────────────────── -->
+        <div class="view" id="view-finance">
+          <div class="finance-tabs">
+            <button class="finance-tab active" data-tab="month" onclick="switchFinanceTab('month')">📅 Month</button>
+            <button class="finance-tab" data-tab="wishlist" onclick="switchFinanceTab('wishlist')">🛒 Wishlist</button>
+            <button class="finance-tab" data-tab="settings" onclick="switchFinanceTab('settings')">⚙️ Settings</button>
+          </div>
+          <div id="finance-content"></div>
+        </div>
+
       </div><!-- /content -->
     </div><!-- /main -->
 
     <!-- FLOATING ACTION BUTTON -->
-    <button id="fab" aria-label="Quick Capture">+</button>
+    <button id="fab" aria-label="Quick Capture">+<span id="inbox-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center">0</span></button>
 
     <!-- BOTTOM NAV BAR (mobile) -->
     <nav class="bottom-nav">
       <div class="bottom-nav-inner">
+        <div class="bn-pill" id="bn-pill"></div>
         <button class="bottom-nav-btn active" data-view="dashboard">
           <span class="bn-icon">🏠</span>
           <span>Home</span>
@@ -809,6 +892,14 @@
         <button class="bottom-nav-btn" data-view="goals">
           <span class="bn-icon">🎯</span>
           <span>Goals</span>
+        </button>
+        <button class="bottom-nav-btn" data-view="hobbies">
+          <span class="bn-icon">🎨</span>
+          <span>Hobbies</span>
+        </button>
+        <button class="bottom-nav-btn" data-view="finance">
+          <span class="bn-icon">💰</span>
+          <span>Finance</span>
         </button>
       </div>
     </nav>
