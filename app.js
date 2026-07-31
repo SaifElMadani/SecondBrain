@@ -72,6 +72,11 @@ function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toS
 function dk(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function daysBetween(a, b) {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -1329,6 +1334,8 @@ function openAddTaskModal(prefill = '', captureId = null, item = null, overrides
           if (currentView === 'inbox') renderInbox();
         }
       }
+      const taskGoal = state.goals.find(g => g.id === v.goalId);
+      if (taskGoal && taskGoal.categoryId) await ensureCategoryTabForType(taskGoal.categoryId, 'tasks', '☑️ Tasks');
       renderTasks();
       if (currentView === 'category' && activeCategoryId) renderCategoryContent();
       if (currentView === 'dashboard') renderDashStats();
@@ -1511,18 +1518,16 @@ function computeGoalProgress(goal) {
   }
 
   if (habitCount > 0) {
-    const thirtyDaysAgo = dk(new Date(Date.now() - 30 * 86400000));
     let totalConsistency = 0;
     for (const h of habits) {
-      const recentCheckins = (h.checkIns || []).filter(c => c >= thirtyDaysAgo).length;
-      const consistency = recentCheckins / 30;
-      totalConsistency += consistency;
+      const hp = computeHabitProgress(h);
+      totalConsistency += hp.progress;
       const streak = calcStreak(h.checkIns || []);
-      habitDetails.push({ name: h.name, consistency: Math.round(consistency * 100), streak });
+      habitDetails.push({ name: h.name, consistency: Math.round(hp.progress * 100), streak, mode: hp.mode });
     }
     habitProgress = totalConsistency / habitCount;
     const avgPct = Math.round(habitProgress * 100);
-    details.push(`avg ${avgPct}% habit consistency (30d)`);
+    details.push(`avg ${avgPct}% habit progress`);
   }
 
   let overall;
@@ -1564,103 +1569,53 @@ function renderSprint() {
   document.getElementById('sprint-q-fill').style.width = `${overallPct}%`;
   document.getElementById('sprint-progress-label').textContent = `${sprintGoals.length} objective${sprintGoals.length > 1 ? 's' : ''}`;
 
-  // Group by root category
+  // Group by root category (Family/Growth/Career/Finance), each root = a collapsible accordion
   const grouped = {};
   for (const g of sprintGoals) {
     const catId = g.categoryId;
-    let catLabel = 'Uncategorized';
+    let rootKey = 'uncategorized';
     if (catId) {
       const root = getCategoryRoot(catId);
-      catLabel = root ? (root.icon || '') + ' ' + root.name : 'Uncategorized';
+      if (root) rootKey = root.id;
     }
-    if (!grouped[catLabel]) grouped[catLabel] = [];
-    grouped[catLabel].push(g);
+    if (!grouped[rootKey]) grouped[rootKey] = [];
+    grouped[rootKey].push(g);
   }
 
+  const rootLabel = key => {
+    if (key === 'uncategorized') return '🗂 Uncategorized';
+    const root = getCategoryById(key);
+    return root ? (root.icon || '') + ' ' + root.name : '🗂 Uncategorized';
+  };
+
   let html = '';
-  for (const [catLabel, goals] of Object.entries(grouped)) {
-    html += `<div class="sprint-group"><div class="sprint-group-title">${esc(catLabel)}</div>`;
-    html += goals.map(g => {
-      const p = computeGoalProgress(g);
-      const catTag = g.categoryId ? getCategoryPathString(g.categoryId) : '';
-      const isAuto = p.mode === 'auto';
-      return `<div class="sprint-obj">
-        <div class="sprint-obj-header">
-          <div class="sprint-obj-title">
-            <span onclick="openAddGoalModal(state.goals.find(x=>x.id==='${g.id}'))" style="cursor:pointer">${esc(g.title)}</span>
-            ${catTag ? `<span class="cat-module-tag" style="font-size:10px;margin-left:6px">${esc(catTag)}</span>` : ''}
-          </div>
-          <div class="sprint-obj-progress">${p.progress}%</div>
-          ${isAuto ? '' : `<div class="stepper" style="gap:6px">
-            <button onclick="adjustGoalProgress('${g.id}',-10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px" title="Manual -10%">−</button>
-            <button onclick="adjustGoalProgress('${g.id}',10)" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px" title="Manual +10%">+</button>
-          </div>`}
-          ${isAuto ? '' : `<button onclick="resetSprintGoal('${g.id}')" style="color:var(--danger);font-size:14px;padding:4px 8px;background:none;border:1px solid var(--danger);border-radius:var(--radius-sm);cursor:pointer" title="Reset progress to 0">↺</button>`}
-          <button onclick="toggleSprintDetail('${g.id}')" style="color:var(--text-muted);font-size:16px;padding:4px 8px;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" title="Show details">📊</button>
-          <button onclick="removeSprintObjective('${g.id}')" style="color:var(--text-muted);font-size:18px;padding:8px" title="Remove from sprint">×</button>
-        </div>
-        <div class="prog-track" style="cursor:pointer" onclick="toggleSprintDetail('${g.id}')"><div class="prog-fill" style="width:${p.progress}%"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:2px">
-          <span>${isAuto ? 'Auto' : 'Manual'}</span>
-          <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="toggleSprintDetail('${g.id}')">${p.details.length || p.habitDetails.length ? '📊 metrics' : ''}</span>
-        </div>
-        <div id="sprint-detail-${g.id}" class="sprint-detail" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-radius:var(--radius-sm);font-size:12px">
-          ${p.mode === 'auto' ? p.details.map(d => `<div style="color:var(--text-soft);padding:2px 0">→ ${esc(d)}</div>`).join('') : '<div style="color:var(--text-muted)">Manual progress (use +/- to adjust)</div>'}
-          ${p.habitDetails.length ? '<div style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px">' + p.habitDetails.map(hd => `<div style="color:var(--text-soft);padding:2px 0">🔥 ${esc(hd.name)}: ${hd.consistency}% consistency · ${hd.streak}d streak</div>`).join('') + '</div>' : ''}
-          ${p.mode === 'auto' && !p.details.length && !p.habitDetails.length ? '<div style="color:var(--text-muted)">No linked tasks or habits yet.</div>' : ''}
-          <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;display:flex;gap:4px;flex-wrap:wrap">
-            <button class="btn btn-xs btn-ghost" onclick="openAddTaskModal('', null, null)">+ Task</button>
-            <button class="btn btn-xs btn-ghost" onclick="openAddHabitModal()">+ Habit</button>
-          </div>
-        </div>
-        ${(g.weeklyActions || []).length ? `
-        <div class="sprint-weekly">
-          <div class="sprint-weekly-title">This week's actions</div>
-          ${g.weeklyActions.map(a => `<div class="sprint-action-item"><span style="color:var(--accent)">→</span> ${esc(a)}</div>`).join('')}
-        </div>` : ''}
-      </div>`;
-    }).join('');
-    html += '</div>';
+  for (const [rootKey, goals] of Object.entries(grouped)) {
+    const collapsed = (window._collapsedSprintRoots || new Set()).has(rootKey);
+    html += `<div class="sprint-root-accordion">
+      <div class="sprint-root-header" onclick="toggleSprintRootExpand('${rootKey}')">
+        <span class="sprint-root-chevron${collapsed ? '' : ' expanded'}">▶</span>
+        <span class="sprint-root-title">${esc(rootLabel(rootKey))}</span>
+        <span class="sprint-root-count">${goals.length} objective${goals.length > 1 ? 's' : ''}</span>
+      </div>
+      <div class="sprint-root-body${collapsed ? ' collapsed' : ''}">
+        ${goals.map(g => buildGoalAccordionHtml(g)).join('')}
+      </div>
+    </div>`;
   }
   list.innerHTML = html;
 }
 
-function toggleSprintDetail(goalId) {
-  const el = document.getElementById('sprint-detail-' + goalId);
-  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+function toggleSprintRootExpand(rootKey) {
+  if (!window._collapsedSprintRoots) window._collapsedSprintRoots = new Set();
+  if (window._collapsedSprintRoots.has(rootKey)) window._collapsedSprintRoots.delete(rootKey);
+  else window._collapsedSprintRoots.add(rootKey);
+  renderSprint();
 }
 
 function getQuarterLabel() {
   const now = new Date();
   const q = Math.floor(now.getMonth() / 3) + 1;
   return `${now.getFullYear()}-Q${q}`;
-}
-
-async function resetSprintGoal(goalId) {
-  const goal = state.goals.find(g => g.id === goalId);
-  if (!goal) return;
-  const linkedTasks = state.tasks.filter(t => t.goalId === goalId);
-  const linkedHabits = state.habits.filter(h => h.goalId === goalId);
-  if (linkedTasks.length || linkedHabits.length) {
-    toast('This goal has linked tasks/habits — progress is derived automatically and cannot be reset.', 'info', 4000);
-    return;
-  }
-  if (!confirm(`Remettre la progression de "${goal.title}" à 0% ?`)) return;
-  goal.progress = 0;
-  await saveDoc('goals', goalId, { progress: 0 });
-  renderSprint();
-  if (currentView === 'goals') renderGoals();
-  toast('Progression réinitialisée', 'success');
-}
-
-async function removeSprintObjective(goalId) {
-  const goal = state.goals.find(g => g.id === goalId);
-  if (!goal) return;
-  goal.isSprintObjective = false;
-  goal.sprintQuarter = null;
-  await saveDoc('goals', goalId, { isSprintObjective: false, sprintQuarter: null });
-  renderSprint();
-  if (currentView === 'goals') renderGoals();
 }
 
 document.getElementById('add-sprint-obj-btn').addEventListener('click', () => {
@@ -1688,6 +1643,7 @@ document.getElementById('add-sprint-obj-btn').addEventListener('click', () => {
       };
       state.goals.unshift(data);
       await saveDoc('goals', id, data);
+      if (catId) await ensureCategoryTabForType(catId, 'goals', '🎯 Goals');
       renderSprint();
       if (currentView === 'goals') renderGoals();
     }
@@ -2245,6 +2201,7 @@ document.getElementById('add-goal-btn').addEventListener('click', openAddGoalMod
 
 function rerenderGoalsList() {
   if (currentView === 'category' && activeCategoryId) renderCategoryContent();
+  else if (currentView === 'sprint') renderSprint();
   else renderGoals();
 }
 
@@ -2252,7 +2209,7 @@ function buildGoalAccordionHtml(g) {
   const p = computeGoalProgress(g);
   const isAuto = p.mode === 'auto';
   const catTag = g.categoryId ? getCategoryPathString(g.categoryId) : '';
-  const expanded = window._expandedGoals.has(g.id);
+  const expanded = (window._expandedGoals || (window._expandedGoals = new Set())).has(g.id);
   const goalHabits = state.habits.filter(h => h.goalId === g.id);
   const goalTasks = state.tasks.filter(t => t.goalId === g.id);
   const linkedTasks = goalTasks.filter(t => !t.done).length;
@@ -2316,9 +2273,11 @@ function buildGoalAccordionHtml(g) {
         ${goalHabits.length ? goalHabits.map(h => {
           const streak = calcStreak(h.checkIns || []);
           const checkedToday = (h.checkIns || []).includes(today);
+          const hp = computeHabitProgress(h);
           return `<div class="cat-page-habit">
             <button class="task-check-sm${checkedToday ? ' done' : ''}" onclick="toggleHabitToday('${h.id}');rerenderGoalsList()">${checkedToday ? '✓' : ''}</button>
             <span class="cat-page-habit-name" onclick="openAddHabitModal(state.habits.find(x=>x.id==='${h.id}'))">${esc(h.name)}</span>
+            ${h.deadline ? `<span style="font-size:11px;color:var(--accent-light)" title="Deadline ${h.deadline}">${Math.round(hp.progress * 100)}%</span>` : ''}
             ${streak > 0 ? `<span class="streak-badge">🔥 ${streak}</span>` : ''}
             <span style="flex:1"></span>
             <button class="btn btn-ghost btn-xs" onclick="deleteHabit('${h.id}');rerenderGoalsList()">×</button>
@@ -2408,6 +2367,7 @@ function openAddGoalModal(item = null) {
         state.goals.unshift(data);
         await saveDoc('goals', id, data);
       }
+      if (catId) await ensureCategoryTabForType(catId, 'goals', '🎯 Goals');
       rerenderGoalsList();
       if (currentView === 'sprint') renderSprint();
     }
@@ -2734,6 +2694,7 @@ function renderHabits() {
   el.innerHTML = state.habits.map(h => {
     const streak = calcStreak(h.checkIns || []);
     const checkIns = h.checkIns || [];
+    const hp = computeHabitProgress(h);
     const catId = getHabitCategoryId(h);
     const catTag = catId ? getCategoryPathString(catId) : '';
     return `<div class="habit-section">
@@ -2746,8 +2707,9 @@ function renderHabits() {
       <div class="heatmap-wrap">
         <div class="heatmap-grid" id="heatmap-${h.id}"></div>
       </div>
-      <div style="margin-top:8px; display:flex; gap:8px; align-items:center">
+      <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
         <span style="font-size:12px; color:var(--text-muted)">${checkIns.length} total check-ins</span>
+        <span style="font-size:12px; color:var(--accent-light)">${hp.mode === 'deadline' ? `⏳ ${Math.round(hp.progress * 100)}% to deadline (${h.deadline})` : `📊 ${Math.round(hp.progress * 100)}% consistency (30d)`}</span>
       </div>
     </div>`;
   }).join('');
@@ -2785,6 +2747,21 @@ function calcStreak(checkIns) {
   return streak;
 }
 
+function computeHabitProgress(h) {
+  const checkIns = h.checkIns || [];
+  if (h.deadline) {
+    const startKey = h.createdAt ? dk(new Date(h.createdAt)) : dk();
+    const todayKey = dk();
+    const endKey = h.deadline < todayKey ? h.deadline : todayKey;
+    const totalDaysWindow = Math.max(1, daysBetween(startKey, h.deadline));
+    const completedCheckIns = checkIns.filter(c => c >= startKey && c <= endKey).length;
+    return { progress: Math.min(1, completedCheckIns / totalDaysWindow), mode: 'deadline' };
+  }
+  const thirtyDaysAgo = dk(new Date(Date.now() - 30 * 86400000));
+  const recent = checkIns.filter(c => c >= thirtyDaysAgo).length;
+  return { progress: recent / 30, mode: 'rolling' };
+}
+
 async function toggleHabitToday(id) {
   const habit = state.habits.find(h => h.id === id);
   if (!habit) return;
@@ -2810,7 +2787,8 @@ function openAddHabitModal(item = null, overrides = {}) {
     sub: editing ? 'Update habit details' : 'A daily practice that moves you forward',
     fields: [
       { name: 'name', label: 'Habit Name', placeholder: 'e.g. 30-min walk', required: true, value: editing ? item.name : '' },
-      { name: 'goalId', label: 'Goal (Parent)', type: 'select', required: true, value: editing ? (item.goalId || '') : (overrides.goalId || ''), options: goalOpts }
+      { name: 'goalId', label: 'Goal (Parent)', type: 'select', required: true, value: editing ? (item.goalId || '') : (overrides.goalId || ''), options: goalOpts },
+      { name: 'deadline', label: 'Target Date (optional)', type: 'date', value: editing ? (item.deadline || '') : '' }
     ],
     submit: editing ? 'Save Changes' : 'Add Habit',
     onSubmit: async v => {
@@ -2819,14 +2797,16 @@ function openAddHabitModal(item = null, overrides = {}) {
         return;
       }
       if (editing) {
-        Object.assign(item, { name: v.name, goalId: v.goalId });
+        Object.assign(item, { name: v.name, goalId: v.goalId, deadline: v.deadline || null });
         await saveDoc('habits', item.id, item);
       } else {
         const id = uid();
-        const data = { id, name: v.name, goalId: v.goalId, checkIns: [], createdAt: Date.now() };
+        const data = { id, name: v.name, goalId: v.goalId, checkIns: [], createdAt: Date.now(), deadline: v.deadline || null };
         state.habits.unshift(data);
         await saveDoc('habits', id, data);
       }
+      const habitGoal = state.goals.find(g => g.id === v.goalId);
+      if (habitGoal && habitGoal.categoryId) await ensureCategoryTabForType(habitGoal.categoryId, 'habits', '🔥 Habits');
       renderHabits();
       if (currentView === 'category' && activeCategoryId) renderCategoryContent();
       if (currentView === 'dashboard') renderDashHabits();
@@ -4019,25 +3999,7 @@ function renderCategoryContent() {
   html += '</div>';
 
   // Tab bar
-  html += `<div class="cat-tab-bar" style="display:flex;gap:4px;flex-wrap:wrap;margin:12px 0">`;
-  const typeUsed = new Set();
-  for (const tab of tabs) {
-    typeUsed.add(tab.type);
-    const active = tab.id === window._activeCategoryTab;
-    html += `<div style="display:inline-flex;align-items:center;gap:2px">
-      <button class="btn btn-sm${active ? ' btn-primary' : ''}" onclick="window._activeCategoryTab='${tab.id}';renderCategoryContent()">${esc(tab.label)}</button>
-      <button class="btn-ghost btn-xs" onclick="removeCategoryTab('${cat.id}','${tab.id}')" title="Remove tab" style="font-size:11px;padding:2px 4px;color:var(--text-muted)">×</button>
-    </div>`;
-  }
-  const availableTypes = [];
-  if (!typeUsed.has('tasks')) availableTypes.push(['tasks', '☑️ Tasks']);
-  if (!typeUsed.has('goals')) availableTypes.push(['goals', '🎯 Goals']);
-  if (!typeUsed.has('habits')) availableTypes.push(['habits', '🔥 Habits']);
-  if (!typeUsed.has('list')) availableTypes.push(['list', '📋 Liste simple']);
-  if (availableTypes.length) {
-    html += `<button class="btn btn-sm btn-ghost" onclick="openAddTabModal('${cat.id}', [${availableTypes.map(([t,l]) => `['${t}','${l}']`).join(',')}])">+ Ajouter un onglet</button>`;
-  }
-  html += `</div>`;
+  html += renderCategoryTabBar(cat);
 
   // Active tab content
   const activeTab = tabs.find(t => t.id === window._activeCategoryTab);
@@ -4048,6 +4010,75 @@ function renderCategoryContent() {
   }
 
   el.innerHTML = html;
+}
+
+let _tabRenameArmed = false;
+
+function renderCategoryTabBar(cat) {
+  const tabs = cat.tabs || [];
+  const renaming = window._renamingTabId;
+  let html = `<div class="cat-tab-bar" id="cat-tab-bar" style="display:flex;gap:4px;flex-wrap:wrap;margin:12px 0">`;
+  const typeUsed = new Set();
+  for (const tab of tabs) {
+    typeUsed.add(tab.type);
+    if (tab.id === renaming) {
+      html += `<div style="display:inline-flex;align-items:center;gap:2px">
+        <input type="text" id="cat-tab-rename-input" value="${esc(tab.label)}" style="font-size:12px;padding:6px 8px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);width:150px"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){cancelTabRename('${cat.id}','${tab.id}')}"
+          onblur="finishTabRename('${cat.id}','${tab.id}',this.value)">
+      </div>`;
+    } else {
+      const active = tab.id === window._activeCategoryTab;
+      html += `<div style="display:inline-flex;align-items:center;gap:2px">
+        <button class="btn btn-sm${active ? ' btn-primary' : ''}" onclick="window._activeCategoryTab='${tab.id}';renderCategoryContent()">${esc(tab.label)}</button>
+        <button class="btn-ghost btn-xs" onclick="startTabRename('${cat.id}','${tab.id}')" title="Rename tab" style="font-size:11px;padding:2px 4px;color:var(--text-muted)">✎</button>
+        <button class="btn-ghost btn-xs" onclick="removeCategoryTab('${cat.id}','${tab.id}')" title="Remove tab" style="font-size:11px;padding:2px 4px;color:var(--text-muted)">×</button>
+      </div>`;
+    }
+  }
+  const availableTypes = [];
+  if (!typeUsed.has('tasks')) availableTypes.push(['tasks', '☑️ Tasks']);
+  if (!typeUsed.has('goals')) availableTypes.push(['goals', '🎯 Goals']);
+  if (!typeUsed.has('habits')) availableTypes.push(['habits', '🔥 Habits']);
+  if (!typeUsed.has('list')) availableTypes.push(['list', '📋 Liste simple']);
+  if (availableTypes.length) {
+    html += `<button class="btn btn-sm btn-ghost" onclick="openAddTabModal('${cat.id}', [${availableTypes.map(([t,l]) => `['${t}','${l}']`).join(',')}])">+ Ajouter un onglet</button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function startTabRename(catId, tabId) {
+  window._renamingTabId = tabId;
+  _tabRenameArmed = true;
+  const cat = getCategoryById(catId);
+  if (cat) {
+    const bar = document.getElementById('cat-tab-bar');
+    if (bar) bar.outerHTML = renderCategoryTabBar(cat);
+  }
+  const input = document.getElementById('cat-tab-rename-input');
+  if (input) { input.focus(); input.select(); }
+}
+
+function finishTabRename(catId, tabId, newLabel) {
+  window._renamingTabId = null;
+  if (!_tabRenameArmed) return;
+  _tabRenameArmed = false;
+  const cat = getCategoryById(catId);
+  if (!cat) { if (currentView === 'category' && activeCategoryId) renderCategoryContent(); return; }
+  const tab = (cat.tabs || []).find(t => t.id === tabId);
+  const val = (newLabel || '').trim();
+  if (tab && val) {
+    tab.label = val;
+    saveDoc('categories', catId, { tabs: cat.tabs });
+  }
+  if (currentView === 'category' && activeCategoryId) renderCategoryContent();
+}
+
+function cancelTabRename(catId, tabId) {
+  _tabRenameArmed = false;
+  window._renamingTabId = null;
+  if (currentView === 'category' && activeCategoryId) renderCategoryContent();
 }
 
 function renderCategoryTabContent(cat, tab, catIds, today) {
@@ -4124,9 +4155,11 @@ function renderTabHabits(cat, catIds, today) {
     html += habits.map(h => {
       const streak = calcStreak(h.checkIns || []);
       const checkedToday = (h.checkIns || []).includes(today);
+      const hp = computeHabitProgress(h);
       return `<div class="cat-page-habit">
         <button class="task-check-sm${checkedToday ? ' done' : ''}" onclick="toggleHabitToday('${h.id}'); renderCategoryContent()">${checkedToday ? '✓' : ''}</button>
         <span class="cat-page-habit-name">${esc(h.name)}</span>
+        ${h.deadline ? `<span style="font-size:11px;color:var(--accent-light)" title="Deadline ${h.deadline}">${Math.round(hp.progress * 100)}%</span>` : ''}
         ${streak > 0 ? `<span class="streak-badge">🔥 ${streak}</span>` : ''}
       </div>`;
     }).join('');
@@ -4158,6 +4191,19 @@ function renderTabList(cat, tab) {
   }
   html += '</div>';
   return html;
+}
+
+async function ensureCategoryTabForType(catId, type, defaultLabel) {
+  if (!catId) return;
+  const cat = getCategoryById(catId);
+  if (!cat || (cat.moduleType !== 'generic' && cat.moduleType !== undefined)) return;
+  const tabs = cat.tabs || [];
+  if (tabs.some(t => t.type === type)) return;
+  if (!cat.tabs) cat.tabs = [];
+  const tab = { id: uid(), type, label: defaultLabel };
+  cat.tabs.push(tab);
+  await saveDoc('categories', cat.id, { tabs: cat.tabs });
+  if (cat.tabs.length === 1) window._activeCategoryTab = tab.id;
 }
 
 function openAddTabModal(catId, availableTypes) {

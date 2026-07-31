@@ -27,13 +27,28 @@ facts. Everything above them is computed.
 - Raw input: `done` (boolean). No progress concept beyond binary.
 
 ### 2. Habit
-- Raw input: check-in history (per-day boolean, as already tracked).
-- Derived "consistency score" for a chosen window (e.g. last 30 days):
-  `completedDays / totalDays` in that window. Use a rolling window, not
-  all-time — a habit's health is about recent consistency, not history.
-- Current streak (already computed via `calcStreak`) is a separate,
-  complementary number — shown alongside consistency, not merged into
-  one figure that hides both.
+- Raw inputs: check-in history (per-day boolean, as already tracked),
+  `createdAt`, and now an optional `deadline` (target date).
+- **If a deadline is set:** progress is deadline-based, not a rolling
+  window —
+  `totalDaysWindow = daysBetween(createdAt, deadline)` (fixed, doesn't
+  shrink after the deadline passes)
+  `completedCheckIns = count of true check-ins between createdAt and
+  min(today, deadline)`
+  `progress = min(1, completedCheckIns / totalDaysWindow)`
+  This gives a genuine "how far along toward the goal" figure, exactly
+  like a task's done/not-done but continuous — and it plugs directly
+  into the Goal's weighted average the same way task completion does.
+- **If no deadline is set** (legacy habits, or ones the user
+  deliberately leaves open-ended): fall back to the rolling-window
+  consistency score — `completedDays / totalDays` over the last 30
+  days. This is a snapshot of recent behavior, not a march toward a
+  target, and is treated separately from deadline-based progress in
+  any aggregation (don't average a rolling-window score with a
+  deadline-based score as if they meant the same thing).
+- Current streak (`calcStreak`) stays a separate, complementary number
+  either way — shown alongside whichever progress figure applies, not
+  merged into it.
 
 ### 3. Goal
 - **If the Goal has 0 tasks AND 0 habits attached:** progress is a
