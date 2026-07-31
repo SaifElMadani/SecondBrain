@@ -1364,7 +1364,7 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 /* ═══════════════════════════════════════════════════════════════
    GOALS & HABITS VIEW
 ═══════════════════════════════════════════════════════════════ */
-.goals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.goals-grid { display: flex; flex-direction: column; gap: 0; }
 
 .goal-card {
   background: var(--surface); border: 1px solid var(--border);
@@ -1397,6 +1397,60 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   font-size: 10px;
 }
 .milestone-check.done { background: var(--success); border-color: var(--success); color: #fff; }
+
+/* Goal accordion */
+.goal-accordion {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 12px;
+  overflow: hidden; transition: border-color .2s;
+}
+.goal-accordion:hover { border-color: var(--border2); }
+.goal-accordion.expanded { border-color: var(--accent-dim); }
+.goal-accordion-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; cursor: pointer; user-select: none;
+}
+.goal-accordion-chevron {
+  font-size: 10px; color: var(--text-muted);
+  transition: transform .2s; flex-shrink: 0;
+}
+.goal-accordion-chevron.expanded { transform: rotate(90deg); }
+.goal-accordion-summary { flex: 1; min-width: 0; }
+.goal-accordion-title-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.goal-accordion-body {
+  padding: 0 20px 16px; border-top: 1px solid var(--border);
+}
+.goal-accordion-body.collapsed { display: none; }
+
+/* Sprint root-category accordion (groups goal accordions under a life-area root) */
+.sprint-root-accordion {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 14px;
+  overflow: hidden; transition: border-color .2s;
+}
+.sprint-root-accordion:hover { border-color: var(--border2); }
+.sprint-root-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; cursor: pointer; user-select: none;
+}
+.sprint-root-chevron {
+  font-size: 10px; color: var(--text-muted);
+  transition: transform .2s; flex-shrink: 0;
+}
+.sprint-root-chevron.expanded { transform: rotate(90deg); }
+.sprint-root-title {
+  font-size: 13px; font-weight: 700; color: var(--text-soft);
+  text-transform: uppercase; letter-spacing: .05em; flex: 1;
+}
+.sprint-root-count { font-size: 12px; color: var(--text-muted); }
+.sprint-root-body {
+  padding: 6px 14px 14px; border-top: 1px solid var(--border);
+}
+.sprint-root-body.collapsed { display: none; }
+.sprint-root-body .goal-accordion:last-child { margin-bottom: 0; }
 
 /* Habit heatmap */
 .habit-section { margin-bottom: 32px; }
@@ -1818,8 +1872,7 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   .day-num { width: 20px; height: 20px; font-size: 11px; }
   .day-ev { font-size: 9px; padding: 1px 3px; }
 
-  /* Goals */
-  .goals-grid { grid-template-columns: 1fr; }
+  /* Goals — accordion is naturally stacked on all widths */
 
   /* Areas */
   .areas-grid { grid-template-columns: 1fr 1fr; }
