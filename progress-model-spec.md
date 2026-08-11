@@ -29,6 +29,10 @@ facts. Everything above them is computed.
 ### 2. Habit
 - Raw inputs: check-in history (per-day boolean, as already tracked),
   `createdAt`, and now an optional `deadline` (target date).
+- Optional `frequency` (`'daily'` (default) | `'weekly'` |
+  `'3x_per_week'` | `'monthly'` | `'once'`). Absent or `'daily'` = the
+  day-based rules below unchanged (no migration needed for existing
+  habits).
 - **If a deadline is set:** progress is deadline-based, not a rolling
   window —
   `totalDaysWindow = daysBetween(createdAt, deadline)` (fixed, doesn't
@@ -49,6 +53,34 @@ facts. Everything above them is computed.
 - Current streak (`calcStreak`) stays a separate, complementary number
   either way — shown alongside whichever progress figure applies, not
   merged into it.
+- **Per-frequency rules (v1.7.0)** — both the streak and the progress
+  switch unit from *days* to *ISO weeks* (`isoWeekKey` = `YYYY-Www`):
+  - `'weekly'`: any number of check-ins within one ISO week = one
+    "successful week". Progress (deadline) =
+    `successfulWeeks / weeksBetweenKeys(createdAt, deadline)`; streak =
+    consecutive successful ISO weeks ending this week (current week
+    not yet checked breaks it, like the daily "not checked today").
+  - `'3x_per_week'`: an ISO week is "successful" iff ≥3 check-ins land
+    in it. Progress (deadline) = `checkInsInWindow /
+    (3 × weeksBetweenKeys(createdAt, deadline))` — partial weeks earn
+    partial credit proportionally; streak = consecutive successful
+    weeks (≥3 check-ins each).
+  - `'once'`: single check-in anywhere in the window ⇒ 100%. Streak is
+    1 once any check-in exists, else 0.
+  - `'monthly'` (v1.15.0): the unit becomes *calendar months*
+    (`monthKey` = `YYYY-MM`) — any number of check-ins within one
+    calendar month = one "successful month". Deadline progress =
+    `successfulMonths / monthsBetweenKeys(createdAt, deadline)`;
+    streak = consecutive successful calendar months ending this month
+    (current month not yet checked breaks it, like daily/weekly).
+    Rolling (no deadline) = distinct recent calendar months /
+    `monthsBetweenKeys(30 days ago, today)`.
+  - No-deadline (rolling) versions: `'weekly'` =
+    distinct recent weeks / `ceil(30/7)`; `'3x_per_week'` = recent
+    check-ins / (3 × `ceil(30/7)`); `'once'` = any recent check-in.
+  - The progress value returned still carries `mode:
+    'deadline' | 'rolling'` so Goal/Sprint aggregation treats it the
+    same regardless of frequency.
 
 ### 3. Goal
 - **If the Goal has 0 tasks AND 0 habits attached:** progress is a
