@@ -7,6 +7,14 @@
   <title>Second Brain — Your Personal OS</title>
   <meta name="description"
     content="A personal second brain for focus, time awareness, goals, habits, and everything that matters." />
+  <meta name="theme-color" content="#0a0c12" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Second Brain" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
@@ -176,33 +184,44 @@
     <div class="ritual-card">
       <div class="ritual-header">
         <div class="ritual-time-badge" id="ritual-badge">☀️ Morning Check-in</div>
-        <div class="ritual-progress" id="ritual-progress">
-          <div class="ritual-progress-bar" id="rp-0"></div>
-          <div class="ritual-progress-bar" id="rp-1"></div>
-          <div class="ritual-progress-bar" id="rp-2"></div>
-        </div>
+        <div class="ritual-progress" id="ritual-progress"></div>
         <div class="ritual-q-num" id="ritual-q-num">Question 1 of 3</div>
         <div class="ritual-q-text" id="ritual-q-text"></div>
       </div>
 
-      <!-- Mood picker (shown on q1 morning / q2 evening) -->
+      <!-- Mood picker — 7-emoji single select (morning Q4) -->
       <div id="ritual-mood-area" style="display:none">
         <div class="mood-row" id="ritual-mood-row">
-          <button class="mood-btn" data-mood="😔" title="Low">😔</button>
-          <button class="mood-btn" data-mood="😐" title="Okay">😐</button>
-          <button class="mood-btn" data-mood="🙂" title="Good">🙂</button>
-          <button class="mood-btn" data-mood="😄" title="Great">😄</button>
-          <button class="mood-btn" data-mood="🤩" title="Excellent">🤩</button>
+          <button class="mood-btn" data-mood="😊" title="Content">😊</button>
+          <button class="mood-btn" data-mood="😰" title="Stressé">😰</button>
+          <button class="mood-btn" data-mood="😢" title="Triste">😢</button>
+          <button class="mood-btn" data-mood="😠" title="En colère">😠</button>
+          <button class="mood-btn" data-mood="😐" title="Neutre">😐</button>
+          <button class="mood-btn" data-mood="😴" title="Fatigué">😴</button>
+          <button class="mood-btn" data-mood="😟" title="Anxieux">😟</button>
         </div>
+      </div>
+
+      <!-- Energy slider (morning Q3) -->
+      <div id="ritual-energy-area" style="display:none">
         <div class="slider-wrap">
-          <div class="slider-label"><span>Energy Level</span><strong id="energy-val">5</strong></div>
+          <div class="slider-label"><span>🔋 Energy Level</span><strong id="energy-val">5</strong></div>
           <input type="range" min="1" max="10" value="5" id="ritual-energy">
         </div>
       </div>
 
+      <!-- Afternoon Q1: day-priority task status (calls toggleTask directly) -->
+      <div id="ritual-check-area" style="display:none"></div>
+
       <!-- Text answer area -->
       <div id="ritual-text-area" style="display:none">
         <textarea id="ritual-answer" placeholder="Type your answer…" style="min-height:100px; width:100%;"></textarea>
+      </div>
+
+      <!-- Afternoon Q3: tomorrow priority + create-as-task button -->
+      <div id="ritual-tomorrow-area" style="display:none">
+        <textarea id="ritual-tomorrow" placeholder="Type your priority for tomorrow…" style="min-height:100px; width:100%;"></textarea>
+        <button class="btn-ritual-tomorrow" id="ritual-tomorrow-btn">⭐ Create as tomorrow's priority</button>
       </div>
 
       <div class="ritual-nav">
@@ -213,51 +232,59 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
-     PAUSE SCREEN (mandatory 60s after task completion)
+     PAUSE WIDGET (non-blocking, 60s after task completion)
 ═══════════════════════════════════════════════════════════════ -->
   <div id="screen-pause">
-    <div class="pause-ring-wrap">
-      <svg width="180" height="180" viewBox="0 0 180 180" id="pause-svg">
-        <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(108,99,255,.1)" stroke-width="10" />
-        <circle cx="90" cy="90" r="80" fill="none" stroke="url(#pauseGrad)" stroke-width="10" stroke-linecap="round"
-          stroke-dasharray="502.65" stroke-dashoffset="0" transform="rotate(-90 90 90)" id="pause-ring-circle" />
-        <defs>
-          <linearGradient id="pauseGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#6C63FF" />
-            <stop offset="100%" stop-color="#A78BFA" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div class="pause-ring-text">
-        <div class="pause-ring-num" id="pause-countdown">60</div>
-        <div class="pause-ring-label">seconds</div>
+    <div class="pause-widget">
+      <div class="pause-widget-head">
+        <div class="pause-title" id="pause-title">You finished something. 🎉</div>
+        <button class="pause-widget-close" id="pause-close-btn" title="Dismiss">✕</button>
       </div>
-    </div>
-
-    <div class="pause-breath"></div>
-    <div class="pause-title" id="pause-title">You finished something. 🎉</div>
-    <div class="pause-sub">Take 60 seconds to breathe. The next task will wait.<br>Notice how completion feels.</div>
-    <button class="pause-skip-btn" id="pause-skip-btn">Continue to next task</button>
-
-    <!-- Quick win logging -->
-    <div style="text-align:center; margin-top: 8px;">
-      <input type="text" id="pause-win-input" placeholder="What did you just accomplish? (optional)"
-        style="max-width:360px; text-align:center; background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.1);">
+      <div class="pause-widget-body">
+        <div class="pause-ring-wrap">
+          <svg width="180" height="180" viewBox="0 0 180 180" id="pause-svg">
+            <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(108,99,255,.1)" stroke-width="10" />
+            <circle cx="90" cy="90" r="80" fill="none" stroke="url(#pauseGrad)" stroke-width="10" stroke-linecap="round"
+              stroke-dasharray="502.65" stroke-dashoffset="0" transform="rotate(-90 90 90)" id="pause-ring-circle" />
+            <defs>
+              <linearGradient id="pauseGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#6C63FF" />
+                <stop offset="100%" stop-color="#A78BFA" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="pause-ring-text">
+            <div class="pause-ring-num" id="pause-countdown">60</div>
+            <div class="pause-ring-label">seconds</div>
+          </div>
+        </div>
+        <div class="pause-widget-side">
+          <div class="pause-sub">Take 60 seconds to breathe. The next task will wait.<br>Notice how completion feels.</div>
+          <input type="text" id="pause-win-input" placeholder="What did you just accomplish? (optional)" />
+          <button class="pause-skip-btn" id="pause-skip-btn">Continue to next task</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
-     ACTIVE TASK TIMER OVERLAY
+     ACTIVE TASK TIMER WIDGET (non-blocking, persistent)
 ═══════════════════════════════════════════════════════════════ -->
   <div id="overlay-timer">
-    <div class="timer-task-name" id="timer-task-name">Working on task…</div>
-    <div class="timer-display" id="timer-display">25:00</div>
-    <div class="timer-bar-wrap">
-      <div class="timer-bar-fill" id="timer-bar-fill"></div>
-    </div>
-    <div class="timer-actions">
-      <button class="timer-stop-btn" id="timer-done-btn">✓ Mark Complete</button>
-      <button class="timer-cancel-btn" id="timer-cancel-btn">Cancel</button>
+    <div class="timer-widget">
+      <div class="timer-task-name" id="timer-task-name">Working on task…</div>
+      <div class="timer-widget-row">
+        <div class="timer-display" id="timer-display">25:00</div>
+        <div class="timer-widget-side">
+          <div class="timer-bar-wrap">
+            <div class="timer-bar-fill" id="timer-bar-fill"></div>
+          </div>
+          <div class="timer-actions">
+            <button class="timer-stop-btn" id="timer-done-btn">✓ Mark Complete</button>
+            <button class="timer-cancel-btn" id="timer-cancel-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -369,6 +396,7 @@
             <div class="sidebar-user-email" id="sidebar-useremail"></div>
           </div>
         </div>
+        <button class="logout-btn" id="settings-btn">⚙️ Settings</button>
         <button class="logout-btn" id="logout-btn">⎋ Sign out</button>
       </div>
     </aside>
@@ -404,16 +432,6 @@
               </div>
             </div>
 
-            <!-- Habit rings -->
-            <div class="card habit-rings-card">
-              <div class="card-label">Today's Habits</div>
-              <div class="habit-rings-row" id="dash-habit-rings">
-                <div class="empty-state" style="padding:10px 0; align-items:flex-start">
-                  <p style="font-size:12px">No habits yet. Add habits in Goals & Habits.</p>
-                </div>
-              </div>
-            </div>
-
             <!-- Stats row -->
             <div class="stats-row">
               <div class="card stat-card">
@@ -430,52 +448,107 @@
               </div>
             </div>
 
-            <!-- Day progress ring -->
-            <div class="card" style="text-align:center">
-              <div class="card-label">Day Progress</div>
-              <div id="time-ring-pct" style="font-size:24px;font-weight:800;color:var(--accent)">0%</div>
-              <div id="time-ring-label" style="font-size:12px;color:var(--text-muted)">Starting your day</div>
-              <div id="time-ring-wrap"></div>
-            </div>
-
-            <!-- Family protected time -->
-            <div class="card family-card">
-              <div class="card-label" style="display:flex;align-items:center;gap:8px">
-                <span>👨‍👩‍👧 Protected Family Time Today</span>
-                <span class="protected-badge">SACRED</span>
+            <!-- Habits accordion (Daily / Weekly / Monthly subgroups) -->
+            <div class="dash-accordion" id="dash-acc-habits">
+              <div class="dash-accordion-header" onclick="toggleDashSection('habits')">
+                <span class="dash-accordion-chevron" id="dash-chev-habits">▶</span>
+                <span class="dash-accordion-title">🔥 Habits</span>
+                <span class="dash-accordion-count" id="dash-habits-count"></span>
               </div>
-              <div class="family-blocks" id="dash-family-blocks">
-                <div style="font-size:13px; color:var(--text-muted); padding:8px 0">No protected blocks today. Add them
-                  in Family Mode.</div>
-              </div>
-            </div>
-
-            <!-- Mood & energy from morning ritual -->
-            <div class="card">
-              <div class="card-label">Morning Check-in</div>
-              <div id="dash-ritual-summary"
-                style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:4px 0">
-                <div style="font-size:13px; color:var(--text-muted)">Complete your morning ritual to see your mood here.
+              <div class="dash-accordion-body" id="dash-body-habits">
+                <div class="dash-sub-accordion">
+                  <div class="dash-sub-header" onclick="toggleDashHabitGroup('daily')">
+                    <span class="dash-sub-chevron" id="dash-sub-chev-daily">▶</span>
+                    <span class="dash-sub-title">Daily</span>
+                    <span class="dash-sub-count" id="dash-habit-count-daily"></span>
+                  </div>
+                  <div class="dash-sub-body" id="dash-habits-daily"></div>
+                </div>
+                <div class="dash-sub-accordion">
+                  <div class="dash-sub-header" onclick="toggleDashHabitGroup('weekly')">
+                    <span class="dash-sub-chevron" id="dash-sub-chev-weekly">▶</span>
+                    <span class="dash-sub-title">Weekly</span>
+                    <span class="dash-sub-count" id="dash-habit-count-weekly"></span>
+                  </div>
+                  <div class="dash-sub-body" id="dash-habits-weekly"></div>
+                </div>
+                <div class="dash-sub-accordion">
+                  <div class="dash-sub-header" onclick="toggleDashHabitGroup('monthly')">
+                    <span class="dash-sub-chevron" id="dash-sub-chev-monthly">▶</span>
+                    <span class="dash-sub-title">Monthly</span>
+                    <span class="dash-sub-count" id="dash-habit-count-monthly"></span>
+                  </div>
+                  <div class="dash-sub-body" id="dash-habits-monthly"></div>
                 </div>
               </div>
             </div>
 
-            <!-- Recent captures -->
-            <div class="card">
-              <div class="section-header" style="margin-bottom:10px">
-                <div class="section-title">Recent Captures</div>
-                <button class="btn btn-ghost btn-sm" onclick="goTo('inbox')">View Inbox</button>
+            <!-- Morning / Afternoon check-ins -->
+            <div class="dash-accordion" id="dash-acc-checkins">
+              <div class="dash-accordion-header" onclick="toggleDashSection('checkins')">
+                <span class="dash-accordion-chevron" id="dash-chev-checkins">▶</span>
+                <span class="dash-accordion-title">🌤 Morning / Afternoon</span>
               </div>
-              <div class="captures-list" id="dash-captures">
-                <div style="font-size:13px; color:var(--text-muted); padding:8px 0">Nothing captured yet. Tap the ⚡
-                  button!</div>
+              <div class="dash-accordion-body" id="dash-body-checkins">
+                <div id="dash-checkin-today"></div>
+                <div id="dash-checkin-strip"></div>
               </div>
             </div>
 
-            <!-- Achievements summary -->
-            <div class="card achievements-card" id="dash-achievements">
-              <div class="card-label">Your Achievements</div>
-              <div id="dash-achievements-content"></div>
+            <!-- Weekly Energy -->
+            <div class="dash-accordion" id="dash-acc-energy">
+              <div class="dash-accordion-header" onclick="toggleDashSection('energy')">
+                <span class="dash-accordion-chevron" id="dash-chev-energy">▶</span>
+                <span class="dash-accordion-title">🔋 Energy</span>
+              </div>
+              <div class="dash-accordion-body" id="dash-body-energy">
+                <div class="dash-energy-btns" id="dash-energy-btns"></div>
+                <div class="dash-energy-strip" id="dash-energy-strip"></div>
+              </div>
+            </div>
+
+            <!-- Goals by Life Area -->
+            <div class="dash-accordion" id="dash-acc-goals">
+              <div class="dash-accordion-header" onclick="toggleDashSection('goals')">
+                <span class="dash-accordion-chevron" id="dash-chev-goals">▶</span>
+                <span class="dash-accordion-title">🎯 Goals by Life Area</span>
+              </div>
+              <div class="dash-accordion-body" id="dash-body-goals"></div>
+            </div>
+
+            <!-- Weekly Tasks chart -->
+            <div class="dash-accordion" id="dash-acc-weekly">
+              <div class="dash-accordion-header" onclick="toggleDashSection('weekly')">
+                <span class="dash-accordion-chevron" id="dash-chev-weekly">▶</span>
+                <span class="dash-accordion-title">📊 Weekly Tasks</span>
+              </div>
+              <div class="dash-accordion-body" id="dash-body-weekly"></div>
+            </div>
+
+            <!-- Recent captures -->
+            <div class="dash-accordion" id="dash-acc-captures">
+              <div class="dash-accordion-header" onclick="toggleDashSection('captures')">
+                <span class="dash-accordion-chevron" id="dash-chev-captures">▶</span>
+                <span class="dash-accordion-title">⚡ Recent Captures</span>
+                <button class="btn btn-ghost btn-sm" onclick="goTo('inbox')" style="margin-left:auto">View Inbox</button>
+              </div>
+              <div class="dash-accordion-body" id="dash-body-captures">
+                <div class="captures-list" id="dash-captures">
+                  <div style="font-size:13px; color:var(--text-muted); padding:8px 0">Nothing captured yet. Tap the ⚡
+                    button!</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Achievements -->
+            <div class="dash-accordion achievements-card" id="dash-acc-achievements">
+              <div class="dash-accordion-header" onclick="toggleDashSection('achievements')">
+                <span class="dash-accordion-chevron" id="dash-chev-achievements">▶</span>
+                <span class="dash-accordion-title">🏆 Achievements</span>
+              </div>
+              <div class="dash-accordion-body" id="dash-body-achievements">
+                <div id="dash-achievements-content"></div>
+              </div>
             </div>
 
           </div>
@@ -606,9 +679,16 @@
         <div class="view" id="view-calendar">
           <div class="calendar-toolbar">
             <h2 class="cal-title" id="cal-title">July 2026</h2>
+            <div class="cal-view-toggle">
+              <button class="cal-view-btn active" id="cal-view-month">Mois</button>
+              <button class="cal-view-btn" id="cal-view-week">Semaine</button>
+            </div>
+            <input type="date" id="cal-date-picker" class="cal-date-picker" title="Aller à une date" />
             <button class="cal-nav-btn" id="cal-prev">←</button>
-            <button class="cal-today-btn" id="cal-today">Today</button>
+            <button class="cal-today-btn" id="cal-today">Aujourd'hui</button>
             <button class="cal-nav-btn" id="cal-next">→</button>
+            <button class="cal-today-btn" id="cal-week-next">Semaine suivante</button>
+            <button class="cal-today-btn" id="cal-month-next">Mois suivant</button>
             <button class="btn btn-sm" id="add-event-btn">+ Event</button>
           </div>
           <div class="cal-connect-bar">
@@ -869,43 +949,15 @@
     <!-- FLOATING ACTION BUTTON -->
     <button id="fab" aria-label="Quick Capture">+<span id="inbox-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center">0</span></button>
 
-    <!-- BOTTOM NAV BAR (mobile) -->
+    <!-- BOTTOM NAV BAR (mobile) — rendered dynamically by renderBottomNav() (js/router.js),
+         configurable in Settings (state.settings.bottomNav) -->
     <nav class="bottom-nav">
-      <div class="bottom-nav-inner">
-        <div class="bn-pill" id="bn-pill"></div>
-        <button class="bottom-nav-btn active" data-view="dashboard">
-          <span class="bn-icon">🏠</span>
-          <span>Home</span>
-        </button>
-        <button class="bottom-nav-btn" data-view="tasks">
-          <span class="bn-icon">☑️</span>
-          <span>Tasks</span>
-        </button>
-        <button class="bottom-nav-btn" data-view="notes">
-          <span class="bn-icon">📝</span>
-          <span>Notes</span>
-        </button>
-        <button class="bottom-nav-btn" data-view="calendar">
-          <span class="bn-icon">📅</span>
-          <span>Calendar</span>
-        </button>
-        <button class="bottom-nav-btn" data-view="goals">
-          <span class="bn-icon">🎯</span>
-          <span>Goals</span>
-        </button>
-        <button class="bottom-nav-btn" data-view="hobbies">
-          <span class="bn-icon">🎨</span>
-          <span>Hobbies</span>
-        </button>
-        <button class="bottom-nav-btn" data-view="finance">
-          <span class="bn-icon">💰</span>
-          <span>Finance</span>
-        </button>
-      </div>
+      <div class="bottom-nav-inner"></div>
     </nav>
 
   </div><!-- /app -->
 
+  <script type="module" src="js/main.js"></script>
   <script src="app.js" defer></script>
 </body>
 
