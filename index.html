@@ -220,7 +220,8 @@
 
       <!-- Afternoon Q3: tomorrow priority + create-as-task button -->
       <div id="ritual-tomorrow-area" style="display:none">
-        <textarea id="ritual-tomorrow" placeholder="Type your priority for tomorrow…" style="min-height:100px; width:100%;"></textarea>
+        <textarea id="ritual-tomorrow" placeholder="Type your priority for tomorrow…"
+          style="min-height:100px; width:100%;"></textarea>
         <button class="btn-ritual-tomorrow" id="ritual-tomorrow-btn">⭐ Create as tomorrow's priority</button>
       </div>
 
@@ -259,7 +260,8 @@
           </div>
         </div>
         <div class="pause-widget-side">
-          <div class="pause-sub">Take 60 seconds to breathe. The next task will wait.<br>Notice how completion feels.</div>
+          <div class="pause-sub">Take 60 seconds to breathe. The next task will wait.<br>Notice how completion feels.
+          </div>
           <input type="text" id="pause-win-input" placeholder="What did you just accomplish? (optional)" />
           <button class="pause-skip-btn" id="pause-skip-btn">Continue to next task</button>
         </div>
@@ -530,7 +532,8 @@
               <div class="dash-accordion-header" onclick="toggleDashSection('captures')">
                 <span class="dash-accordion-chevron" id="dash-chev-captures">▶</span>
                 <span class="dash-accordion-title">⚡ Recent Captures</span>
-                <button class="btn btn-ghost btn-sm" onclick="goTo('inbox')" style="margin-left:auto">View Inbox</button>
+                <button class="btn btn-ghost btn-sm" onclick="goTo('inbox')" style="margin-left:auto">View
+                  Inbox</button>
               </div>
               <div class="dash-accordion-body" id="dash-body-captures">
                 <div class="captures-list" id="dash-captures">
@@ -678,21 +681,7 @@
         <!-- ─── CALENDAR ───────────────────────────────────── -->
         <div class="view" id="view-calendar">
           <div class="calendar-toolbar">
-<<<<<<< HEAD
             <input type="date" id="cal-date-picker" class="cal-date-picker" title="Aller à une date" />
-=======
-            <h2 class="cal-title" id="cal-title">July 2026</h2>
-            <div class="cal-view-toggle">
-              <button class="cal-view-btn active" id="cal-view-month">Mois</button>
-              <button class="cal-view-btn" id="cal-view-week">Semaine</button>
-            </div>
-            <input type="date" id="cal-date-picker" class="cal-date-picker" title="Aller à une date" />
-            <button class="cal-nav-btn" id="cal-prev">←</button>
-            <button class="cal-today-btn" id="cal-today">Aujourd'hui</button>
-            <button class="cal-nav-btn" id="cal-next">→</button>
-            <button class="cal-today-btn" id="cal-week-next">Semaine suivante</button>
-            <button class="cal-today-btn" id="cal-month-next">Mois suivant</button>
->>>>>>> 45564f30bf44fc41630e24edf2446362437cd114
             <button class="btn btn-sm" id="add-event-btn">+ Event</button>
           </div>
           <div class="cal-connect-bar">
@@ -713,19 +702,13 @@
               Connect Outlook
             </button>
           </div>
-<<<<<<< HEAD
           <div id="calendar"></div>
-=======
-          <div class="cal-grid-wrap">
-            <div class="cal-weekdays" id="cal-weekdays"></div>
-            <div class="cal-days" id="cal-days"></div>
-          </div>
->>>>>>> 45564f30bf44fc41630e24edf2446362437cd114
         </div>
 
         <!-- ─── TASKS / GOALS / HABITS (3 tabs) ──────────────── -->
         <div class="view" id="view-goals">
-          <div class="view-tabs" style="margin-bottom:20px;display:inline-flex;flex-wrap:wrap;gap:4px" id="suivi-tab-bar"></div>
+          <div class="view-tabs" style="margin-bottom:20px;display:inline-flex;flex-wrap:wrap;gap:4px"
+            id="suivi-tab-bar"></div>
 
           <!-- Tasks panel -->
           <div id="tgh-tasks-panel" style="display:none">
@@ -782,13 +765,15 @@
 
           <div class="journal-section">
             <div class="journal-section-label">☀️ Morning</div>
-            <textarea id="journal-morning" placeholder="How did your morning go? Reflections, intentions, gratitude…"></textarea>
+            <textarea id="journal-morning"
+              placeholder="How did your morning go? Reflections, intentions, gratitude…"></textarea>
             <div class="journal-auto-save" id="journal-morning-status"></div>
           </div>
 
           <div class="journal-section">
             <div class="journal-section-label">🌤️ Afternoon</div>
-            <textarea id="journal-afternoon" placeholder="How is your day going? Wins, challenges, thoughts…"></textarea>
+            <textarea id="journal-afternoon"
+              placeholder="How is your day going? Wins, challenges, thoughts…"></textarea>
             <div class="journal-auto-save" id="journal-afternoon-status"></div>
           </div>
 
@@ -932,7 +917,8 @@
           <div id="hobby-detail-view" style="display:none">
             <div class="section-header">
               <div>
-                <button class="btn btn-ghost btn-sm" onclick="showHobbiesList()" style="margin-bottom:8px">← Back</button>
+                <button class="btn btn-ghost btn-sm" onclick="showHobbiesList()" style="margin-bottom:8px">←
+                  Back</button>
                 <div class="section-title" id="hobby-detail-name"></div>
               </div>
               <button class="btn" id="add-hobby-obj-btn">+ Add Objective</button>
@@ -955,7 +941,8 @@
     </div><!-- /main -->
 
     <!-- FLOATING ACTION BUTTON -->
-    <button id="fab" aria-label="Quick Capture">+<span id="inbox-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center">0</span></button>
+    <button id="fab" aria-label="Quick Capture">+<span id="inbox-badge"
+        style="display:none;position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center">0</span></button>
 
     <!-- BOTTOM NAV BAR (mobile) — rendered dynamically by renderBottomNav() (js/router.js),
          configurable in Settings (state.settings.bottomNav) -->
@@ -965,7 +952,6 @@
 
   </div><!-- /app -->
 
-<<<<<<< HEAD
   <!-- FullCalendar v6 (global builds — styles are injected by these scripts) -->
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.21/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.21/index.global.min.js"></script>
@@ -973,8 +959,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/list@6.1.21/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@6.1.21/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.21/locales/fr.global.min.js"></script>
-=======
->>>>>>> 45564f30bf44fc41630e24edf2446362437cd114
   <script type="module" src="js/main.js"></script>
   <script src="app.js" defer></script>
 </body>
