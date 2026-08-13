@@ -461,7 +461,7 @@ function openExternalEventModal(ev) {
     </div>`,
     fields: [],
     submit: 'Close',
-    onSubmit: () => {}
+    onSubmit: () => { }
   });
 }
 
