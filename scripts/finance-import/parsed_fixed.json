@@ -1,0 +1,1808 @@
+{
+  "financeMonths": [
+    {
+      "id": "2025-08",
+      "revenus": {
+        "a": {
+          "income": 3410.73,
+          "previousSavings": 150.0
+        },
+        "b": {
+          "income": 1918.14,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "9e990f0e-c9d1-4e97-ae73-2555305ad1b0",
+          "name": "Loyer",
+          "amount": 1300.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b4cca86a-06d6-444a-9d29-82249b77bb85",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "5d1d5aa3-70fe-4d81-8e06-836c114b9aec",
+          "name": "Sorties couple",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "2320aa4b-daf8-403d-88b3-39e1e73ecd66",
+          "name": "Nourriture Chat",
+          "amount": 70.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "76043a8c-4302-4b21-9cac-8583f79986ec",
+          "name": "Economies Japon",
+          "amount": 900.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "e06d0dcd-d803-4001-8f3d-1f61ec41e815",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "e19dd031-0c36-49b6-9e0c-57f7143b2c55",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "8475996d-3960-435b-aa1a-33ba24346e92",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "6deb15d9-5ef0-4632-953a-aff8efc91823",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "34a44654-edb9-48d9-ba0a-9e489ce44319",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "07e9366e-4da8-45ab-845d-dd5f9684f7ca",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "ab3cd92b-8659-40bd-a357-bd40a72cdd9e",
+          "name": "Shopping",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "0eafcd27-753c-4da6-8d8c-1d768f82c2be",
+          "name": "Voyage Bordeaux",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "32e02e8e-f755-4eb1-b035-8b66eab569ea",
+          "name": "Economies Maroc",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "6b633168-f803-4c2c-badc-133bd0a3a15f",
+          "name": "Dettes CAF",
+          "amount": 931.99,
+          "account": "Compte joint",
+          "type": "variable"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "bf34f6a3-4c52-4a41-808f-1790826ee7cb",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "77999643-9d11-43ec-a331-0fc22fe8569b",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "a8680b26-42c2-4142-8ffe-6ed886417c59",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "0379fdfe-a51b-4b75-8e10-d9b6880c129c",
+            "name": "Secours islamique",
+            "amount": 100.0
+          },
+          {
+            "id": "4b6e1c17-fcf5-4565-9f81-0fcc7b05a1f1",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "04967c09-d443-49c7-8f3e-508c13ab9130",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "f376fcb2-8955-4e5c-9ae6-a5fcfdde2ef5",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "6f169097-5e4f-4865-afa2-b1746d79f035",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "a4430c2b-ff8f-41f6-8a60-2cacdbd4c439",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "45d75508-67fb-44e4-ba99-5e42830153f6",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "57683040-4d39-4fdd-83ec-2725010ff884",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "2447ec05-438c-4173-886a-5355b7d02936",
+            "name": "Coiffeur",
+            "amount": 60.0
+          },
+          {
+            "id": "b66956fc-5aed-4e1a-b177-1912c547b554",
+            "name": "Banque",
+            "amount": 4.6
+          },
+          {
+            "id": "42ca9e75-b323-40f6-b428-a6c04eee1247",
+            "name": "Sport",
+            "amount": 44.9
+          }
+        ]
+      },
+      "createdAt": 1784488060055
+    },
+    {
+      "id": "2025-09",
+      "revenus": {
+        "a": {
+          "income": 3320.97,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 1637.71,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "84c66423-2225-434b-9986-96dc64680c04",
+          "name": "Frais voiture",
+          "amount": 160.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "7b8e6c8d-3914-4536-b8e4-0530e3909927",
+          "name": "Loyer",
+          "amount": 1300.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "a903f38d-7e93-48fd-a5f1-991e00c1f540",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "c7ca8a8c-2d52-47cf-85c4-0cd39d22a180",
+          "name": "Sorties couple",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "93adbba9-9174-4b69-b101-358605500e87",
+          "name": "Nourriture Chat",
+          "amount": 70.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "170dba1f-d7f1-470c-b7ef-68408df35746",
+          "name": "Economies Japon",
+          "amount": 900.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b28df955-1381-48e7-974b-53c786d2ef62",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "0c569415-07cf-47f8-bbfc-4ae9b2750265",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b673ef80-3835-415e-9d47-f5a55e53dc77",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "525defdb-c8cf-4d7a-90d0-52afe95c1667",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "36e8de69-c529-44b0-966c-c8e332b1af25",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "6ba92e3d-4d9f-4a93-bd7a-de28ab7b9211",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "a28485f8-ca9b-42a1-b6fc-516c560a53ee",
+          "name": "Shopping",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "062cd6f5-de2c-459f-b551-be580c5f0781",
+          "name": "Voyage Tours",
+          "amount": 94.6,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "0ce9341b-7a72-483c-849e-c42c17ede84e",
+          "name": "Anniversaire Samia",
+          "amount": 30.0,
+          "account": "Compte joint",
+          "type": "variable"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "9ba2c6db-6399-4e1f-93c4-1b03eb0bd203",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "aa42b422-7685-4061-952f-b74e2624bdc7",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "b791bcf4-2cef-43a9-8100-6e2fe52cff2f",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "639fa17d-79cb-4162-832d-25c23e59fc45",
+            "name": "Secours islamique",
+            "amount": 100.0
+          },
+          {
+            "id": "246a259c-fb94-42fa-93a0-4575fbd0fd69",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "9a00e8a3-a26f-44ef-aa98-83392a70d259",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "64dc29e8-ac59-43e1-a9ce-2ada70be640b",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "527fc95d-d1e2-466e-8803-ee818c9c8123",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "ccf1a43a-a8b8-4614-b885-09025885881a",
+            "name": "Banque",
+            "amount": 2.6
+          },
+          {
+            "id": "5a4155a3-0e65-485a-bfc0-11fea346a1f2",
+            "name": "Parking La Défense",
+            "amount": 90.0
+          }
+        ],
+        "b": [
+          {
+            "id": "7de11149-96f4-4a2b-8d34-27a8da2925df",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "3ba9e9f0-e71e-496b-baf8-5b81745c1724",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "f4e23cad-d598-46f7-98bf-b798320212d7",
+            "name": "Coiffeur",
+            "amount": 90.0
+          },
+          {
+            "id": "4106ce99-dbc2-4616-b6ec-12fa57044733",
+            "name": "Banque",
+            "amount": 4.6
+          },
+          {
+            "id": "08e9226b-ffaf-42e7-94f8-b3eddf7fb0f7",
+            "name": "sport",
+            "amount": 66.0
+          }
+        ]
+      },
+      "createdAt": 1784488060057
+    },
+    {
+      "id": "2025-10",
+      "revenus": {
+        "a": {
+          "income": 3264.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 1788.5,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "c0a829f9-f683-4a79-81b9-088b8bf74b8d",
+          "name": "Frais voiture",
+          "amount": 160.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "148c06a3-46a3-4d06-984c-144e6a45d751",
+          "name": "Loyer",
+          "amount": 1300.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "00b6dbac-2e86-4339-9c61-8f9933484ba1",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "d164bda6-3bd1-4834-9f47-b4e6fb065a5e",
+          "name": "Sorties couple",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "38502d6b-bc37-4b29-890b-3fd199c79a41",
+          "name": "Nourriture Chat",
+          "amount": 70.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "2674dd61-63c1-42de-9fe1-438a055799ec",
+          "name": "Economies Japon",
+          "amount": 900.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "5c9c11f9-1ce6-40e2-a277-ac06ba2f9231",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "bfc65357-5aa1-4463-b9e6-a710392fbbd6",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "f139f60e-b269-4ef2-a199-4d8bb56d14e8",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "017e1297-117b-4b34-9386-7210ce0e2cff",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "03d6c9e5-f168-4c3d-afb6-41e3aa047fc4",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "85dd566f-7924-48bb-8685-e6bf6d5bf6b2",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "e95c547a-28ea-4879-9330-1c8948dc8fe9",
+          "name": "Shopping",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "544a75d4-f935-42c0-8c73-d13da4372f08",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "6dbc8fd2-e380-46e0-b86f-6f7fd283a632",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "0649a43b-dd90-4440-94ba-171adb89e4f8",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "b0087f3b-91db-4568-93e6-dc1208d8e5ec",
+            "name": "Secours islamique",
+            "amount": 100.0
+          },
+          {
+            "id": "d43f0e59-1cd9-4167-a92e-a026b1e2972f",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "a68a51e9-c179-4e2b-a668-1126733deb7f",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "6e32711a-68a5-4259-9f30-86e46a83f3a9",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "c0b53da6-e140-4bd4-aa0d-4f20a6f28124",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "1688f401-2a95-478d-9481-bb98cccc0dfd",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "02d82c42-2d2f-4f34-a3dd-f76ea52a6690",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "3b6b1360-9aaa-4382-8f99-de0d6b82bc91",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "f0f1d175-2d20-4388-b0ef-73ab05a00ecb",
+            "name": "Coiffeur",
+            "amount": 90.0
+          },
+          {
+            "id": "11cc7bad-6b76-4409-accd-c6fde90863da",
+            "name": "Banque",
+            "amount": 4.6
+          }
+        ]
+      },
+      "createdAt": 1784488060058
+    },
+    {
+      "id": "2025-11",
+      "revenus": {
+        "a": {
+          "income": 3332.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 1714.05,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "d8b7307e-0b42-499d-b5f0-d52030417574",
+          "name": "Frais voiture",
+          "amount": 160.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "340c49c8-55f2-437d-a016-a22c2535f3af",
+          "name": "Loyer",
+          "amount": 1300.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "883c3246-862b-4e0e-979f-9e6530f71b25",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "3c206052-47cb-43f3-b3eb-3884fb626541",
+          "name": "Sorties couple",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "5224c18c-ba52-4055-9c59-0eb830385454",
+          "name": "Nourriture Chat",
+          "amount": 70.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "4b642f51-20d9-4483-9a2a-841c75954fa8",
+          "name": "Economies Japon",
+          "amount": 900.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "24c4fb4e-91fd-464c-9704-3131d63af268",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "5852548d-0db5-4d72-bc7b-eb15951d370b",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "9ec50042-7566-4086-8b3d-4432406ce654",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "48a1a52a-e0e3-4d9d-b94e-eadfee80b0f5",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "d8752d09-3857-4341-a114-80b497c31740",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "7d36d4fa-193d-46c9-9b54-66f0e9ab5a2f",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "387a06e1-d25b-4b76-96df-e6c9421cefde",
+          "name": "Shopping",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "f334c8f9-8345-4037-8deb-5647b5cba0e5",
+          "name": "Impots",
+          "amount": 136.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "d8b378e5-9872-47d4-8f6f-68f5fad37017",
+          "name": "Train Angers",
+          "amount": 184.0,
+          "account": "Compte joint",
+          "type": "variable"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "205cb0a2-091a-46c6-80c7-f8046245cf5e",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "2e07a228-2937-477d-954c-27b2f9c63adc",
+            "name": "Téléphone",
+            "amount": 8.0
+          },
+          {
+            "id": "ff56a75c-087a-4baa-9014-4f8b052bd1ff",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "e2a4d5b9-a620-4eb5-8fc4-b673a00d0855",
+            "name": "Banque",
+            "amount": 2.6
+          },
+          {
+            "id": "51c61c07-3a6b-42f6-8a39-d38bcae0562f",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "4cde9a58-0837-47f2-a3b6-09fe41bc8e79",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "0a5c7be7-b454-4e47-b629-9879df18d2c9",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "df7995af-a75e-4e68-8ec6-a1471d205bd3",
+            "name": "Cantine",
+            "amount": 90.0
+          }
+        ],
+        "b": [
+          {
+            "id": "bb275390-4362-4061-82de-cf656acaf3b9",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "f98b6b8b-43ba-47cd-9de9-6b9c18809d6e",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "d7cfbd5c-b725-462e-9461-dd415942fef6",
+            "name": "Coiffeur",
+            "amount": 90.0
+          },
+          {
+            "id": "3fd8b139-4c8b-46ef-a7d3-5ebd5e6d5269",
+            "name": "Banque",
+            "amount": 4.6
+          }
+        ]
+      },
+      "createdAt": 1784488060060
+    },
+    {
+      "id": "2025-12",
+      "revenus": {
+        "a": {
+          "income": 3386.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 3390.79,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "bbd033d1-b89d-481e-8f0d-8748379a37da",
+          "name": "Frais voiture",
+          "amount": 160.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "4fcbe712-224b-4036-96d5-16615fe1071c",
+          "name": "Loyer",
+          "amount": 1300.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "303c30e8-63c7-4bb3-823c-d8722e0ca2ee",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "86c6707a-ba9b-4c36-b765-640477da02be",
+          "name": "Sorties couple",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "337573ba-ab36-4b67-a813-7051e6532b16",
+          "name": "Nourriture Chat",
+          "amount": 70.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "f5baf16c-7464-4b1f-a42f-cdd6ab9f4089",
+          "name": "Economies Japon",
+          "amount": 900.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "38da5472-580d-456d-9fd3-32585b94fead",
+          "name": "Shopping",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "fe457899-5c04-4b1a-934e-bcba8d2b4356",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "26f519b1-e78f-48a7-aa87-ccacc41fbc25",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "dd8ddfc1-8336-43a5-8df8-8e2d6cb65060",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "9cc0d0ef-1eb3-4da4-bbef-4143ba9a24ba",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "02a81e60-11b2-4cb9-8cb1-dbd055c4a389",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "100a6f9e-15a9-42bb-9e61-5751a6c506e7",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "88f6e418-eedf-4c8b-ab09-3d283f00d698",
+          "name": "Impôts",
+          "amount": 136.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "5ab168c4-2881-48fe-8cd6-087f77649a62",
+          "name": "Train Noël",
+          "amount": 300.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "43c9501b-106c-407e-9960-131bcab0ed4f",
+          "name": "Cadeau Noël",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "4c4185d7-4d0c-4fa4-a124-5b5762ab7ef5",
+          "name": "Réparations voiture",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "variable"
+        },
+        {
+          "id": "24dd9446-29a9-4ae5-bfa9-7e4be8aee957",
+          "name": "Illumination jardin des plantes",
+          "amount": 42.0,
+          "account": "Compte joint",
+          "type": "variable"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "12f60af2-20e8-47f8-97d6-40baab448f8c",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "0312393c-800a-4a73-a0e7-7c52e6cde19d",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "1c28baf8-7aa0-4226-9486-82f377c2f8cc",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "bef8f4f4-9133-43b3-a3c0-ae184971c327",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "81e32a7e-767a-4cfd-bb2e-554b630bff44",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "9325377a-0271-4563-95f2-0c7a03c480cb",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "1f793ea5-ef24-4eea-8423-1cafbd78a439",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "231280d3-70f5-44b0-bb1d-15f0527a5fa3",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "0abed68f-9110-45e0-b46c-d2d560f2732b",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "cd7f0a8b-d09e-4995-b552-f48b20be51c3",
+            "name": "Transport",
+            "amount": 88.8
+          },
+          {
+            "id": "50e0eeb6-495a-4d0b-afed-fe8e1907f09e",
+            "name": "Coiffeur",
+            "amount": 90.0
+          },
+          {
+            "id": "128b8b4a-f9e6-449c-8b2a-8cf2665c8507",
+            "name": "Banque",
+            "amount": 4.6
+          },
+          {
+            "id": "87c55934-0396-4a42-b41a-8ad143256473",
+            "name": "Manucure",
+            "amount": 35.0
+          },
+          {
+            "id": "0be35dab-1c91-45bf-bcb9-9f24d3ef75d4",
+            "name": "Shopping",
+            "amount": 371.77
+          },
+          {
+            "id": "cada7fa2-f6b1-4a08-b2a7-eb62a1ef2c88",
+            "name": "Écouteurs",
+            "amount": 58.0
+          }
+        ]
+      },
+      "createdAt": 1784488060062
+    },
+    {
+      "id": "2026-01",
+      "revenus": {
+        "a": {
+          "income": 3332.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 1937.78,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "85f5183a-ff14-462e-84f3-3f158b00e6ba",
+          "name": "Loyer",
+          "amount": 1300.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "67d9ce91-f120-4758-b358-bc79531b3ccd",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "9f562637-21e0-4455-b5bb-3a2e2f908388",
+          "name": "Sorties Couple",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "e65c10f6-ad7b-43d3-9feb-325eebd29baf",
+          "name": "Chat",
+          "amount": 29.32,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "1137201c-8ae8-4070-ad0a-1f6b24c63ea3",
+          "name": "Economies Japon",
+          "amount": 900.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "16784aa7-189d-4f93-8da3-510089f147ff",
+          "name": "Week-ends",
+          "amount": 50.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "faf625e7-8d70-445d-9c0d-5c4ce4ec9972",
+          "name": "Shopping",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "6f927302-260c-4aa3-aeef-d61f12def454",
+          "name": "Box Sécurité",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "cf271be2-40b0-4dca-ad33-baac11788114",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "87774eab-becd-4d27-9c3b-7a2a43423313",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "3180334e-4745-4bb8-b1e1-78556a6fec7d",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "1ef165f3-020d-4858-a64b-f052a424f542",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b8d67946-bd22-48d2-af8d-29eee2ca0e95",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b9e6b2b2-9ab9-47b6-bbf5-afd63d47d71d",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "e993301d-d5ae-4d33-9b1f-9cdfc506b1d8",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "0ac375a3-e2de-4a2f-841c-0b581780c816",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "85f69e23-c1cb-4d25-8c65-a9c6734cf309",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "52c5e411-52d5-405c-bc5f-08bba70e5fec",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "49b1e18f-0150-4c06-a712-c5166877ed3a",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "7f97eecb-5c88-4aa2-a88c-a05e9acdc54b",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "668e4679-5c28-4a1b-b0f3-3f3bde262d07",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "670a427c-b539-412f-9ef2-900020af2aa7",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "84dc3c6b-7320-433b-8fd7-977d83d34de9",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "c70e5b09-3ad7-409a-9fd6-363fdbc4ccc4",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "456106af-3786-43a4-a419-6ecc42308822",
+            "name": "Coiffeur",
+            "amount": 90.0
+          },
+          {
+            "id": "d9bb10f2-0450-4361-8b79-a0ca17be69d9",
+            "name": "Banque",
+            "amount": 4.6
+          },
+          {
+            "id": "db5d0bb6-4941-475d-8fc0-a0bc099b3cca",
+            "name": "Manucure",
+            "amount": 35.0
+          }
+        ]
+      },
+      "createdAt": 1784488060064
+    },
+    {
+      "id": "2026-05",
+      "revenus": {
+        "a": {
+          "income": 3649.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 2600.0,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "5badb118-c9b8-4e5d-926d-857d3c6880fa",
+          "name": "Frais voiture",
+          "amount": 45.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "8dc04e37-6204-4be2-ba6e-f0305fe540f8",
+          "name": "Loyer",
+          "amount": 1308.5,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "3c4abf0e-1115-4d24-a514-bd1f3e5052ab",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "09626f34-ff16-4cbf-9fc4-07d8c8845adb",
+          "name": "Dates",
+          "amount": 200.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "c6b9f847-c442-4991-a73d-7aa736ba436c",
+          "name": "Chat",
+          "amount": 49.15,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "8e766333-1115-4c40-af04-0b11b2a357c8",
+          "name": "Investissement",
+          "amount": 500.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "157f4751-06bd-48aa-8971-22b4163cfdd9",
+          "name": "Week-ends",
+          "amount": 50.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "d46bfaf2-8ae5-4ae8-9fde-2541474a3420",
+          "name": "Shopping",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "80566597-c076-4f9c-be31-33c5941d8e4a",
+          "name": "Box Sécurité",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "58bbc290-906a-4444-8d2b-39a7d8217249",
+          "name": "Bb",
+          "amount": 500.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "cf0af7ce-ded2-4836-98d0-4c958b2b4704",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "a83a4f67-be5c-467f-b006-11a91e532712",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b8f6d925-c1b9-4a66-834c-c0408c603de3",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "6dd9310d-3bd3-48c1-b139-ff5282a0f0c8",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "fe4d47c8-cc46-45f9-af45-22cb492caef8",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "2c1ffed2-3341-4d72-b634-58c94f145589",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "c8f96c4e-fd5c-42c8-ac83-81366e6b1fcf",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "ad22fee7-d303-4391-ba4b-859a8f1246f0",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "5d6a97a7-7eab-4d8a-9127-92e17de2334f",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "ad09aefe-0ffa-41b2-8e5e-b042c4823c15",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "cf32f2fb-2fac-4213-8053-8d6d733f64cd",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "500897c7-3f7e-4032-ad82-dcc5febdb17c",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "a978c5c1-9936-490a-a635-7661e0ff3e48",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "eef59e24-1f0a-4e59-b1ae-a351efb76afa",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "30fd5750-7096-4134-8abd-5537f45b5ee6",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "b0de460b-51f8-4b84-88fc-431b6984053c",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "1094835a-2c98-4ab7-8895-12af4405ae66",
+            "name": "Coiffeur",
+            "amount": 100.0
+          },
+          {
+            "id": "5ed07283-877d-472a-b5c4-6b80fc652f14",
+            "name": "Banque",
+            "amount": 4.6
+          },
+          {
+            "id": "89ba1166-7323-44e4-8c44-9fbaedd79b49",
+            "name": "Manucure",
+            "amount": 45.0
+          }
+        ]
+      },
+      "createdAt": 1784488060066
+    },
+    {
+      "id": "2026-06",
+      "revenus": {
+        "a": {
+          "income": 3000.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 1168.68,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "36798866-f9af-4ddc-8244-81f53339c727",
+          "name": "Frais voiture",
+          "amount": 70.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "176809b1-d44d-4122-8dff-95c1eb5a8232",
+          "name": "Loyer",
+          "amount": 1308.5,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "91fe2850-4f94-4094-8b0a-f5f9cb92affc",
+          "name": "Courses",
+          "amount": 273.58,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "2323fe16-6338-4397-a0e2-552d3d758d1c",
+          "name": "Dates",
+          "amount": 142.5,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "f4a4e619-827c-485c-bc4b-8bcb305787b9",
+          "name": "Investissement",
+          "amount": 500.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "31a120d5-78d1-4859-b1de-f69f55745a64",
+          "name": "Week-ends",
+          "amount": 50.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "567026d1-838c-422e-877e-2ff7ba928258",
+          "name": "Shopping",
+          "amount": 23.89,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "8d85c11c-cf47-4a02-a6f5-1d355fb1d2e0",
+          "name": "Box Sécurité",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "8575cf87-c86e-4ce0-abbe-2d6057f7a7d4",
+          "name": "Bb",
+          "amount": 500.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "0f4f738b-f1ca-4416-bdfa-3fa31178cec5",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "2624886f-9afb-417c-ad49-2a99f16e2bd5",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "624a67cb-26a6-4fc3-9a21-97ea2db179a5",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "63c55e1d-9c28-4fcb-9130-c5e59c191870",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "09384e9f-1789-4b42-986f-8b9beb76c5cc",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "7bb2b0fd-8c5c-484a-8fa2-a959606d437f",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "c176814d-9466-478f-b6c4-67dee56556e5",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "0b26e2f6-632c-450c-9d89-9ea73439bb9c",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "43ecb241-c639-4778-b213-90cdb8b1c18b",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "a5f4dd95-b6cb-4888-aa92-10560549012e",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "5a4454a1-64ca-444b-b2ba-b704e5f1df50",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "572b48b4-7204-4f1a-9d3c-fad785e1e93c",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "3910c99e-1e60-49d9-8f22-e7eca0685aad",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "db690e9b-ad58-44f4-8983-be155b9d1bc7",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "02fa9fbc-cf1c-477b-9b6a-c2ee986a1c8e",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "c495df88-cc0e-4e43-8cb2-a8d5eced7ec2",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "e8e7498a-0b62-4740-b987-e06f7837449d",
+            "name": "Banque",
+            "amount": 4.6
+          }
+        ]
+      },
+      "createdAt": 1784488060067
+    },
+    {
+      "id": "2026-07",
+      "revenus": {
+        "a": {
+          "income": 3638.0,
+          "previousSavings": 0.0
+        },
+        "b": {
+          "income": 1876.72,
+          "previousSavings": 0.0
+        }
+      },
+      "sharedExpenses": [
+        {
+          "id": "bd3e731c-d847-4e54-827f-0b23684d04d1",
+          "name": "Frais voiture",
+          "amount": 115.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "0bce5a66-3348-41bc-9a4d-8a3045160f0e",
+          "name": "Loyer",
+          "amount": 1308.5,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "c56f83c0-b7e4-4c6d-81c1-89b16515ccd7",
+          "name": "Courses",
+          "amount": 400.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "96a4ce55-4c82-4c9e-bf2f-54e9945d6e79",
+          "name": "Dates",
+          "amount": 150.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "46836367-b5a3-4db3-b038-963c725d9a95",
+          "name": "Chat",
+          "amount": 78.47,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "5f78c4fd-3988-44bf-a6b3-52ea356162e9",
+          "name": "Investissement",
+          "amount": 500.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "8e099110-3691-4274-a2b5-4f803afc1399",
+          "name": "Week-ends",
+          "amount": 50.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "16a532da-9daa-4347-a2cc-fe2334263266",
+          "name": "Shopping",
+          "amount": 35.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "6585538e-2b86-4076-9df6-894bbd81fed2",
+          "name": "Box Sécurité",
+          "amount": 100.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "ea0d8b89-cf37-423b-b936-5265282f62f7",
+          "name": "Bb",
+          "amount": 500.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "b7ea19bf-6084-4f1c-bbd8-7e283070c172",
+          "name": "Mode de garde",
+          "amount": 600.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "599ccd56-0ea7-475c-9f8c-f602cfed12fa",
+          "name": "Cardif",
+          "amount": 21.36,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "6f4cb0b9-e1f0-4048-b9ff-b0be3169e3f9",
+          "name": "Crunchyroll",
+          "amount": 5.99,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "1042a8ad-24d5-48ef-a41c-31374fceee47",
+          "name": "Prime Vidéo",
+          "amount": 7.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "2f2906a1-4406-4be6-8222-3d2947f0c93d",
+          "name": "EDF",
+          "amount": 82.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "e899129d-ec70-4584-9211-fe19e3a359a1",
+          "name": "SFR",
+          "amount": 37.97,
+          "account": "Compte joint",
+          "type": "fixed"
+        },
+        {
+          "id": "df2ca9a5-c821-4c85-a0a7-60edea83d1d8",
+          "name": "Canal +",
+          "amount": 25.0,
+          "account": "Compte joint",
+          "type": "fixed"
+        }
+      ],
+      "individualExpenses": {
+        "a": [
+          {
+            "id": "40f9ca08-9081-4172-b2e7-91948884be6d",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "07d34eb0-8bae-4fc1-a77c-7149b76cacb2",
+            "name": "Téléphone",
+            "amount": 14.0
+          },
+          {
+            "id": "29119c63-07b0-4523-bc06-b774e26fd0ae",
+            "name": "Maman",
+            "amount": 200.0
+          },
+          {
+            "id": "e068806d-c489-4090-8519-4f996e18f250",
+            "name": "Free",
+            "amount": 2.0
+          },
+          {
+            "id": "7225a83f-2f1a-4eea-a897-f5e20a676af8",
+            "name": "Coiffeur",
+            "amount": 20.0
+          },
+          {
+            "id": "5691a6be-ad67-47f2-9d55-145c6f094eea",
+            "name": "Gymlib",
+            "amount": 25.0
+          },
+          {
+            "id": "fc19b13a-76e4-4b5c-973f-56ab5258ec9a",
+            "name": "Cantine",
+            "amount": 90.0
+          },
+          {
+            "id": "54a0be28-7d45-4004-b4a9-b70c83ad77c1",
+            "name": "Banque",
+            "amount": 2.6
+          }
+        ],
+        "b": [
+          {
+            "id": "50b170f4-8bf2-4025-8beb-5560290ccdcf",
+            "name": "Téléphone",
+            "amount": 8.99
+          },
+          {
+            "id": "f73a9719-eaef-4950-aced-e9e881d4e832",
+            "name": "Transport",
+            "amount": 90.8
+          },
+          {
+            "id": "122c6df6-88ef-4ad7-b687-e5b21eceb0b1",
+            "name": "Banque",
+            "amount": 4.6
+          }
+        ]
+      },
+      "createdAt": 1784488060069
+    }
+  ],
+  "wishlist": [
+    {
+      "id": "9c6e45a1-14a9-4b5a-930f-1cd018aa0766",
+      "list": "Saif",
+      "name": "Collections Berserk",
+      "price": 1000.0,
+      "saved": 50.0,
+      "link": "",
+      "createdAt": 1784488060069
+    },
+    {
+      "id": "88c7cf7a-8070-4c42-9310-187be0062c2d",
+      "list": "Plaisirs à 3",
+      "name": "Maison",
+      "price": 50000.0,
+      "saved": 3213.0,
+      "link": "",
+      "createdAt": 1784488060070
+    },
+    {
+      "id": "84229ba1-344c-4143-87e3-ca744dbbfe68",
+      "list": "Plaisirs à 3",
+      "name": "Laponie",
+      "price": 2000.0,
+      "saved": 0.0,
+      "link": "",
+      "createdAt": 1784488060070
+    },
+    {
+      "id": "c01d4707-31de-441a-861a-f186feaa52af",
+      "list": "Plaisirs à 3",
+      "name": "Thailand",
+      "price": 7000.0,
+      "saved": 0.0,
+      "link": "",
+      "createdAt": 1784488060070
+    },
+    {
+      "id": "3b7144f1-6c06-4507-9350-408b82176384",
+      "list": "Plaisirs à 3",
+      "name": "Ethiopie",
+      "price": 5000.0,
+      "saved": 0.0,
+      "link": "",
+      "createdAt": 1784488060070
+    }
+  ],
+  "_meta": {
+    "totalSheets": 10,
+    "imported": 9,
+    "skipped": [],
+    "ambiguous": [],
+    "generatedAt": "2026-07-19T21:07:40.070853",
+    "note": "RAW INPUTS ONLY. No calculated values. App calcFinanceMonth() derives prorata/totals/restes."
+  }
+}

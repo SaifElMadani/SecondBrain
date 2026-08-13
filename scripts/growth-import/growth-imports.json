@@ -1,0 +1,186 @@
+[
+    {
+        "category": "Chess",
+        "title": "Define opening repertoire (1 White, 2 Black)",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2028-08-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Chess",
+        "title": "Solve 15 minutes of tactical puzzles",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2028-08-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Chess",
+        "title": "Play 3 Rapid games with engine review",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2028-08-11",
+        "frequency": "weekly"
+    },
+    {
+        "category": "Valorant",
+        "title": "Establish main agent roster (2 primary, 1 flex)",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2029-08-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Valorant",
+        "title": "15-minute aim training routine (Aim Lab / KovaaKs)",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2029-08-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Valorant",
+        "title": "Record and analyze 1 loss VOD for positioning errors",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2029-08-11",
+        "frequency": "weekly"
+    },
+    {
+        "category": "Soccer",
+        "title": "Select 2 specific 1v1 dribble moves for active practice",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2027-08-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Soccer",
+        "title": "30-minute solo drill session (cone dribbling & wall passes)",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2027-08-11",
+        "frequency": "weekly"
+    },
+    {
+        "category": "Dofus",
+        "title": "Finalize 4-character team composition and element balance",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2029-02-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Dofus",
+        "title": "Execute 2 scheduled team dungeon or achievement runs",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2029-02-11",
+        "frequency": "weekly"
+    },
+    {
+        "category": "Guitar",
+        "title": "Select 2 target songs for the sprint",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Guitar",
+        "title": "15-minute focused song practice with metronome",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Piano",
+        "title": "Select 2 target songs for the sprint",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Piano",
+        "title": "15-minute focused song practice with metronome",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Bass",
+        "title": "Select 2 target songs for the sprint",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Bass",
+        "title": "15-minute focused song practice with metronome",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Guembri",
+        "title": "Select 2 target songs for the sprint",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Guembri",
+        "title": "15-minute focused song practice with metronome",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2034-02-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Comedy",
+        "title": "10-minute daily free-writing / joke idea generation",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2031-08-11",
+        "frequency": "daily"
+    },
+    {
+        "category": "Comedy",
+        "title": "Draft or record 1 video script / funny song demo",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2031-08-11",
+        "frequency": "weekly"
+    },
+    {
+        "category": "Gym",
+        "title": "Calculate target caloric intake (+400 kcal) and macro split",
+        "type": "task",
+        "start_date": "2026-08-11",
+        "target_date": "2029-08-11",
+        "frequency": "once"
+    },
+    {
+        "category": "Gym",
+        "title": "Execute hypertrophy + calisthenics skill workout",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2029-08-11",
+        "frequency": "3x_per_week"
+    },
+    {
+        "category": "Gym",
+        "title": "Track morning weight and daily protein goal hit",
+        "type": "habit",
+        "start_date": "2026-08-11",
+        "target_date": "2029-08-11",
+        "frequency": "daily"
+    }
+]

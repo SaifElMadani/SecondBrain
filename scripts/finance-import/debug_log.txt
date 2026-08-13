@@ -1,0 +1,63 @@
+Sheets found (10): ['Août25', 'Sept25', 'Oct25', 'Nov25', 'Déc2025', 'Janv26', 'Mai26', 'Juin26', 'Juillet26', 'Achats']
+
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=150 extracted=150.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3410.73
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1918.14
+  DEBUG RETURN: Août25 revA=3410.73 revB=1918.14 savA=150.0 savB=0.0 n_shared=5
+  [OK]  'Août25' \u2192 2025-08  revA=3410.73, revB=1918.14, savA=150.0, savB=0.0, shared=5, indivA=9, indivB=5
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3320.97
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1637.71
+  DEBUG RETURN: Sept25 revA=3320.97 revB=1637.71 savA=0.0 savB=0.0 n_shared=7
+  [OK]  'Sept25' \u2192 2025-09  revA=3320.97, revB=1637.71, savA=0.0, savB=0.0, shared=7, indivA=10, indivB=5
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3264
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1788.5
+  DEBUG RETURN: Oct25 revA=3264.0 revB=1788.5 savA=0.0 savB=0.0 n_shared=5
+  [OK]  'Oct25' \u2192 2025-10  revA=3264.0, revB=1788.5, savA=0.0, savB=0.0, shared=5, indivA=9, indivB=4
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3332
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1714.05
+  DEBUG RETURN: Nov25 revA=3332.0 revB=1714.05 savA=0.0 savB=0.0 n_shared=7
+  [OK]  'Nov25' \u2192 2025-11  revA=3332.0, revB=1714.05, savA=0.0, savB=0.0, shared=7, indivA=8, indivB=4
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3386
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=3390.79
+  DEBUG RETURN: Déc2025 revA=3386.0 revB=3390.79 savA=0.0 savB=0.0 n_shared=10
+  [OK]  'Déc2025' \u2192 2025-12  revA=3386.0, revB=3390.79, savA=0.0, savB=0.0, shared=10, indivA=8, indivB=7
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3332
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1937.78
+  DEBUG RETURN: Janv26 revA=3332.0 revB=1937.78 savA=0.0 savB=0.0 n_shared=5
+  [OK]  'Janv26' \u2192 2026-01  revA=3332.0, revB=1937.78, savA=0.0, savB=0.0, shared=5, indivA=8, indivB=5
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3649
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=2600
+  DEBUG RETURN: Mai26 revA=3649.0 revB=2600.0 savA=0.0 savB=0.0 n_shared=16
+  [OK]  'Mai26' \u2192 2026-05  revA=3649.0, revB=2600.0, savA=0.0, savB=0.0, shared=16, indivA=8, indivB=5
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3000
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1168.68
+  DEBUG RETURN: Juin26 revA=3000.0 revB=1168.68 savA=0.0 savB=0.0 n_shared=16
+  [OK]  'Juin26' \u2192 2026-06  revA=3000.0, revB=1168.68, savA=0.0, savB=0.0, shared=16, indivA=8, indivB=5
+  DEBUG SAV2: r=2 text='Économies mois précédent Saif' raw_value=0 extracted=0.0
+  DEBUG SAV3: r=3 text='Économies mois précédent Tari' raw_value=0 extracted=0.0
+  DEBUG revA: r=4 text='Revenus Saïf' raw_value=3638
+  DEBUG revB: r=5 text='Revenus Tari' raw_value=1876.72
+  DEBUG RETURN: Juillet26 revA=3638.0 revB=1876.72 savA=0.0 savB=0.0 n_shared=17
+  [OK]  'Juillet26' \u2192 2026-07  revA=3638.0, revB=1876.72, savA=0.0, savB=0.0, shared=17, indivA=8, indivB=5
+  [Achats]  7 items wishlist extraits
+
+==================================================
+Total onglets détectés : 10
+  \u2713 Importés : 9 mois
+  \u2713 Wishlist : 7 items
+==================================================
