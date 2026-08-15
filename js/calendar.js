@@ -4,7 +4,32 @@
 // homemade DOM grid entirely. All rendering/navigation is delegated to
 // FullCalendar; this module only maps app state → FC events and wires
 // clicks back into the app's modals.
+// v1.19.0: local "events" were merged into Tasks — Task is now the ONLY
+// creatable object for the calendar (date click / "+ Task" both open the
+// Add Task modal). Recurring tasks use FC native recurrence (daysOfWeek
+// + startRecur/endRecur) for daily/weekly and the rrule plugin for
+// monthly; every rendered occurrence shows a per-instance checkbox
+// (completions[dateKey]), title (edit the whole series) and skip button
+// (exceptions).
+// v1.20.0 fixes:
+//   A1 — height:'100%' so timegrid fills the available space.
+//   A2 — taskOccurrenceContent returns TRUE (not null/undefined) for non-
+//        recurring / non-task events so FC uses default title rendering
+//        (null/undefined both render an EMPTY event in FC v6 — only `true`
+//        falls back to default content; corrected in v1.20.1).
+//   B  — quick-create popover, selectable drag-to-fill, hover checkbox.
+// v1.21.0: quick-recurrence chips in the popover (Une fois / Tous les jours
+// / Chaque semaine / Chaque mois) — a chip click creates the task immediately
+// with sensible defaults (weekly → weekday of the clicked slot, monthly → same
+// day of month, no end date). The last chip is remembered so "Plus d'options"
+// pre-fills the full modal with that recurrence, editable from there.
+// v1.22.0: the chips moved to the SHARED js/recur.js module — the popover and
+// the Add/Edit Task modal render the exact same component (recurChipsHtml),
+// build rules through buildQuickRecurrence and dispatch every click through
+// the single onRecurChipClick entry point → no duplicated markup/logic.
 // ═══════════════════════════════════════════════════════════════
+
+import { recurChipsHtml, buildQuickRecurrence, setRecurChipsHighlight } from './recur.js';
 
 let calendarInstance = null;
 
@@ -24,7 +49,8 @@ function fcTime(hhmm) {
 
 // Default 30-min duration is computed HERE at build time only — it is a
 // display default and is never persisted (absence of end stays the stored
-// state in Firestore).
+// state in Firestore). Confirmed still in place after the v1.19.0
+// events→tasks fusion.
 function addMinutes(hhmm, mins) {
   const m = String(hhmm).match(/^(\d{1,2}):(\d{2})/);
   if (!m) return hhmm;
@@ -33,7 +59,7 @@ function addMinutes(hhmm, mins) {
 }
 
 function buildFcEvent({ id, title, date, startTime, endTime, type, refId }) {
-  const cls = `ev-${type}`; // ev-task / ev-goal / ev-event / ev-google / ev-outlook
+  const cls = `ev-${type}`; // ev-task / ev-goal / ev-google / ev-outlook
   const base = { id, title, classNames: [cls], extendedProps: { type, refId } };
   const start = fcTime(startTime);
   if (!start) {
@@ -44,19 +70,71 @@ function buildFcEvent({ id, title, date, startTime, endTime, type, refId }) {
   return { ...base, start: `${date}T${start}`, end: `${date}T${end}`, allDay: false };
 }
 
+// Recurring task → FullCalendar recurring-event spec. Uses FC's native
+// recurrence (startRecur / endRecur / daysOfWeek) for daily & weekly, and
+// the rrule plugin for monthly. endDate is inclusive → FC's endRecur is
+// exclusive, so we bump it by one day (rrule's `until` is inclusive).
+function nextDayKey(dateKey) {
+  const d = new Date(dateKey + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return dk(d);
+}
+
+function buildTaskRecurringEvent(t) {
+  const rec = t.recurrence;
+  const base = {
+    id: 'task-' + t.id,
+    title: t.title,
+    groupId: 'grp-' + t.id,
+    classNames: ['ev-task', 'ev-task-recurring'],
+    extendedProps: { type: 'task', refId: t.id },
+  };
+  const startRecur = t.dueDate;
+  const endRecur = rec.endDate || null;
+
+  if (rec.frequency === 'monthly' || rec.frequency === '3_months') {
+    // Monthly (and every-3-months) requires the rrule plugin — FC's native
+    // recurrence only supports daily/weekly (daysOfWeek). Object form: no
+    // RRule global needed; a missing time part in dtstart is treated as
+    // all-day. v1.24.0: '3_months' = monthly at interval 3.
+    // `until` is inclusive — use end-of-day so timed occurrences on the
+    // last day are kept.
+    const rrule = { freq: 'monthly', dtstart: `${startRecur}T00:00:00` };
+    if (rec.frequency === '3_months') rrule.interval = 3;
+    if (t.startTime) rrule.dtstart = `${startRecur}T${fcTime(t.startTime)}`;
+    if (endRecur) rrule.until = `${endRecur}T23:59:59`;
+    base.rrule = rrule;
+    base.allDay = !t.startTime;
+    return base;
+  }
+
+  base.startRecur = startRecur;
+  if (endRecur) base.endRecur = nextDayKey(endRecur); // FC endRecur is exclusive
+  if (rec.frequency === 'weekly' && rec.daysOfWeek && rec.daysOfWeek.length) {
+    base.daysOfWeek = rec.daysOfWeek;
+  }
+  // daily: no daysOfWeek → every day
+  if (t.startTime) {
+    base.startTime = fcTime(t.startTime);
+    base.endTime = fcTime(t.endTime) || fcTime(addMinutes(t.startTime, 30));
+  }
+  return base;
+}
+
 function buildAllEvents() {
   const evs = [];
   (state.tasks || []).filter(t => t.dueDate).forEach(t => {
-    evs.push(buildFcEvent({ id: 'task-' + t.id, title: t.title, date: t.dueDate, type: 'task', refId: t.id }));
+    if (t.recurrence) {
+      evs.push(buildTaskRecurringEvent(t));
+    } else {
+      evs.push(buildFcEvent({
+        id: 'task-' + t.id, title: t.title, date: t.dueDate,
+        startTime: t.startTime, endTime: t.endTime, type: 'task', refId: t.id,
+      }));
+    }
   });
   (state.goals || []).filter(g => g.deadline).forEach(g => {
     evs.push(buildFcEvent({ id: 'goal-' + g.id, title: '🎯 ' + g.title, date: g.deadline, type: 'goal', refId: g.id }));
-  });
-  (state.events || []).forEach(e => {
-    evs.push(buildFcEvent({
-      id: 'evt-' + e.id, title: e.title, date: e.date,
-      startTime: e.startTime, endTime: e.endTime, type: 'event', refId: e.id,
-    }));
   });
   (state.googleCalendarEvents || []).forEach((e, i) => {
     evs.push(buildFcEvent({
@@ -77,21 +155,40 @@ function buildAllEvents() {
 // CLICKS → APP MODALS
 // ───────────────────────────────────────────────────────────────
 
+// v1.20.0: dateClick now opens the quick-create popover instead of the
+// full modal. The popover "Plus d'options" link opens the full modal.
 function onDateClick(info) {
-  openAddEventModal(info.dateStr);
+  closeCalQuickCreate();
+  const jsEvent = info.jsEvent;
+  const dateStr = info.dateStr; // 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM:SS'
+  // In week/day views FC passes a datetime string; in month it passes a date only.
+  const isTimedView = info.view && (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay');
+  let startTime = null;
+  let endTime = null;
+  if (isTimedView && dateStr.length > 10) {
+    // Extract HH:MM from the local datetime string
+    startTime = dateStr.slice(11, 16);
+    endTime = addMinutes(startTime, 30);
+  }
+  const dateOnly = dateStr.slice(0, 10);
+  openCalQuickCreate({
+    x: jsEvent ? jsEvent.clientX : null,
+    y: jsEvent ? jsEvent.clientY : null,
+    dueDate: dateOnly,
+    startTime,
+    endTime,
+    anchorEl: null,
+  });
 }
 
 function onEventClick(info) {
   const { type, refId } = info.event.extendedProps || {};
   if (type === 'task') {
     const t = (state.tasks || []).find(x => x.id === refId);
-    if (t) openAddTaskModal('', null, t);
+    if (t) openAddTaskModal('', null, t); // one-off OR recurring series edit
   } else if (type === 'goal') {
     const g = (state.goals || []).find(x => x.id === refId);
     if (g) openAddGoalModal(g);
-  } else if (type === 'event') {
-    const e = (state.events || []).find(x => x.id === refId);
-    if (e) openAppEventModal(e);
   } else {
     // Google / Outlook — readonly detail modal.
     openExternalEventModal({
@@ -102,6 +199,95 @@ function onEventClick(info) {
       allDay: info.event.allDay,
     });
   }
+}
+
+// ───────────────────────────────────────────────────────────────
+// EVENT CONTENT (per-occurrence rendering for recurring tasks)
+// ───────────────────────────────────────────────────────────────
+
+// v1.20.1 fix (A2): In FC v6, an eventContent callback that returns `null`
+// OR `undefined` (i.e. `return;`) renders an EMPTY event — the default
+// content is NOT used. The only way to fall back to FC's default rendering
+// is to return `true` (added in v6.1.0; see ContentInjector.ts:
+// `if (customGeneratorRes === true) useDefault = true`). Verified against
+// @fullcalendar/core@6.1.21 source + the official upgrade guide.
+// So for every "not my event" case we MUST `return true`.
+function taskOccurrenceContent(arg) {
+  const { type, refId } = arg.event.extendedProps || {};
+  if (type !== 'task') return true; // FC default for goals/google/outlook
+  const t = (state.tasks || []).find(x => x.id === refId);
+  if (!t) return true; // FC default
+  if (!t.recurrence) return true; // FC default (non-recurring: title renders normally)
+
+  // Recurring task occurrence
+  const occDate = dk(arg.event.start);
+  const isListView = arg.view && arg.view.type === 'listWeek';
+  const skipped = (t.exceptions || []).includes(occDate);
+
+  if (skipped) {
+    arg.el.classList.add('ev-skipped');
+    if (isListView) {
+      // List view: just show the restore link inline in the title cell
+      return {
+        html: `<span class="ev-occ ev-occ-skipped">
+          <span class="ev-occ-title" style="text-decoration:line-through;opacity:.5">${esc(t.title)}</span>
+          <button class="ev-occ-restore" onclick="event.stopPropagation();unskipTaskOccurrence('${t.id}','${occDate}')" title="Annuler le saut">↩</button>
+        </span>`,
+      };
+    }
+    return {
+      html: `<span class="ev-occ ev-occ-skipped">
+        <button class="ev-occ-restore" onclick="event.stopPropagation();unskipTaskOccurrence('${t.id}','${occDate}')" title="Annuler le saut">↩</button>
+      </span>`,
+    };
+  }
+
+  const done = !!(t.completions || {})[occDate];
+  arg.el.classList.add(done ? 'ev-task-done' : 'ev-task-pending');
+
+  if (isListView) {
+    // List view: show checkbox + title in the title cell (no skip button — too cluttered)
+    return {
+      html: `<span class="ev-occ">
+        <button class="ev-occ-check${done ? ' done' : ''}" onclick="event.stopPropagation();toggleTaskOccurrence('${t.id}','${occDate}')" title="${done ? 'Marquer non fait' : 'Marquer fait'}">${done ? '✓' : ''}</button>
+        <span class="ev-occ-title">${esc(t.title)}</span>
+      </span>`,
+    };
+  }
+
+  return {
+    html: `<span class="ev-occ">
+      <button class="ev-occ-check${done ? ' done' : ''}" onclick="event.stopPropagation();toggleTaskOccurrence('${t.id}','${occDate}')" title="${done ? 'Marquer non fait' : 'Marquer fait'}">${done ? '✓' : ''}</button>
+      <span class="ev-occ-title" onclick="event.stopPropagation();openAddTaskModal('',null,state.tasks.find(x=>x.id==='${t.id}'))">${esc(t.title)}</span>
+      <button class="ev-occ-skip" onclick="event.stopPropagation();skipTaskOccurrence('${t.id}','${occDate}')" title="Sauter cette occurrence">⏭</button>
+    </span>`,
+  };
+}
+
+// ───────────────────────────────────────────────────────────────
+// HOVER CHECKBOX (Part B3) — injected once via eventDidMount
+// ───────────────────────────────────────────────────────────────
+
+// Injects an .ev-hover-check button onto non-recurring task events.
+// Recurring tasks already have their own inline checkbox from taskOccurrenceContent.
+// The button appearance is CSS-driven (opacity transition on .fc-event:hover).
+function onEventDidMount(arg) {
+  const { type, refId } = arg.event.extendedProps || {};
+  if (type !== 'task') return;
+  const t = (state.tasks || []).find(x => x.id === refId);
+  if (!t || t.recurrence) return; // recurring already has inline check
+
+  const el = arg.el;
+  el.style.position = 'relative'; // needed for absolute positioning of the check
+  const btn = document.createElement('button');
+  btn.className = 'ev-hover-check' + (t.done ? ' done' : '');
+  btn.title = t.done ? 'Marquer non fait' : 'Marquer fait';
+  btn.textContent = t.done ? '✓' : '';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleTask(t.id);
+  });
+  el.appendChild(btn);
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -116,8 +302,10 @@ function ensureCalendar() {
   calendarInstance = new FullCalendar.Calendar(el, {
     initialView: 'dayGridMonth',
     locale: 'fr',
-    height: 'auto',
-    contentHeight: 'auto',
+    // v1.20.0 (A1): height:'100%' fills the parent #calendar div which is
+    // flex:1 inside #view-calendar (also flex). This lets the timegrid expand
+    // to the full available viewport height instead of collapsing to a thin strip.
+    height: '100%',
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
@@ -126,9 +314,17 @@ function ensureCalendar() {
     buttonText: { today: "Aujourd'hui", month: 'Mois', week: 'Semaine', day: 'Jour', list: 'Liste' },
     nowIndicator: true,
     dayMaxEvents: 3,
+    // Part B1: enable drag-to-select for quick time-block creation
+    selectable: true,
+    selectMirror: true,
+    // dateClick opens quick-create popover (v1.20.0 — was openAddTaskModal directly)
     dateClick: onDateClick,
+    // select (drag) also opens quick-create popover with start/end prefilled
+    select: onCalSelect,
     eventClick: onEventClick,
     events: buildAllEvents(),
+    eventContent: taskOccurrenceContent,
+    eventDidMount: onEventDidMount,
     datesSet: () => syncDatePicker(),
   });
   calendarInstance.render();
@@ -154,6 +350,252 @@ function renderCalendar() {
   if (!ensureCalendar()) return;
   refreshCalendarEvents();
 }
+
+// ───────────────────────────────────────────────────────────────
+// PART B1 — SELECT CALLBACK (drag-to-create)
+// ───────────────────────────────────────────────────────────────
+
+function onCalSelect(info) {
+  // info.start, info.end are Date objects; info.allDay is true in month view.
+  closeCalQuickCreate();
+  const dueDate = dk(info.start);
+  let startTime = null;
+  let endTime = null;
+  if (!info.allDay) {
+    startTime = `${pad2(info.start.getHours())}:${pad2(info.start.getMinutes())}`;
+    endTime   = `${pad2(info.end.getHours())}:${pad2(info.end.getMinutes())}`;
+    // If end === start (single click treated as select), default to +30min
+    if (startTime === endTime) endTime = addMinutes(startTime, 30);
+  }
+  // Position near the selected area using the last mouse position (stored below)
+  openCalQuickCreate({
+    x: window._calLastMouseX || null,
+    y: window._calLastMouseY || null,
+    dueDate,
+    startTime,
+    endTime,
+    anchorEl: null,
+  });
+  // Deselect the FC highlight so it doesn't linger behind the popover
+  if (calendarInstance) calendarInstance.unselect();
+}
+
+// Track last mouse position so we can anchor the popover on select (FC select
+// callback doesn't expose the mouse coordinates directly).
+document.addEventListener('mousemove', e => {
+  window._calLastMouseX = e.clientX;
+  window._calLastMouseY = e.clientY;
+}, { passive: true });
+
+// ───────────────────────────────────────────────────────────────
+// PART B2 — QUICK-CREATE POPOVER
+// ───────────────────────────────────────────────────────────────
+
+// Internal state for the currently open popover
+let _qcState = { dueDate: null, startTime: null, endTime: null };
+
+// v1.21.0→v1.24.0: last recurrence chosen in the quick-create popover.
+// v1.24.0: "Une fois" is no longer a chip — recurrence is ON/OFF via the
+// "Récurrent" checkbox (_qcRecEnabled). _qcChip remembers the chosen chip
+// (default 'daily') and only applies while recurrence is enabled.
+let _qcChip = 'daily';
+let _qcRecEnabled = false;
+
+// Format a label for the popover meta line, e.g. "Ven 15 août · 14:00–14:30"
+function _qcDateLabel(dueDate, startTime, endTime) {
+  if (!dueDate) return '';
+  const d = new Date(dueDate + 'T12:00:00');
+  const parts = [];
+  parts.push(d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }));
+  if (startTime) {
+    parts.push(startTime + (endTime ? '–' + endTime : ''));
+  }
+  return parts.join(' · ');
+}
+
+/**
+ * Open the quick-create popover.
+ * @param {Object} opts
+ *   x, y       — mouse clientX/Y to anchor the popover near
+ *   dueDate    — 'YYYY-MM-DD'
+ *   startTime  — 'HH:MM' or null
+ *   endTime    — 'HH:MM' or null
+ *   anchorEl   — DOM element to anchor to (used for the +Task toolbar button)
+ */
+function openCalQuickCreate({ x, y, dueDate, startTime, endTime, anchorEl }) {
+  _qcState = { dueDate, startTime, endTime };
+
+  const popover = document.getElementById('cal-quick-create');
+  const input   = document.getElementById('cal-quick-create-input');
+  const label   = document.getElementById('cal-qc-date-label');
+
+  label.textContent = _qcDateLabel(dueDate, startTime, endTime);
+  input.value = '';
+  popover.classList.add('active');
+
+  // v1.22.0→v1.24.0: sync the shared recurrence block (checkbox + chips) with
+  // the remembered popover state. Unchecked → chips inert, no highlight;
+  // checked → the remembered chip stays highlighted.
+  const recCheck = popover.querySelector('.recur-check-label input');
+  if (recCheck) recCheck.checked = _qcRecEnabled;
+  popover.querySelectorAll('.qc-recur-chip').forEach(c => { c.disabled = !_qcRecEnabled; });
+  setRecurChipsHighlight(_qcRecEnabled ? _qcChip : null);
+
+  // Position the popover
+  const W = 280;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let left, top;
+  if (anchorEl) {
+    const r = anchorEl.getBoundingClientRect();
+    left = Math.min(r.left, vw - W - 12);
+    top  = r.bottom + 6;
+  } else if (x !== null && y !== null) {
+    left = Math.min(x, vw - W - 12);
+    top  = Math.min(y + 6, vh - 200);
+  } else {
+    // Fallback: center horizontally under the toolbar
+    left = Math.max(12, (vw - W) / 2);
+    top  = 80;
+  }
+
+  left = Math.max(8, left);
+  top  = Math.max(8, top);
+  popover.style.left = left + 'px';
+  popover.style.top  = top  + 'px';
+
+  // Auto-focus with a short delay (so FC's click handling doesn't steal focus)
+  setTimeout(() => input && input.focus(), 60);
+}
+
+function closeCalQuickCreate() {
+  const popover = document.getElementById('cal-quick-create');
+  if (popover) popover.classList.remove('active');
+  _qcState = { dueDate: null, startTime: null, endTime: null };
+}
+
+// v1.24.0: the "Récurrent" checkbox in the quick-create popover. Checked →
+// recurrence enabled (the remembered chip applies on submit); unchecked →
+// one-off: reset the chip to its fresh default and clear any highlight so a
+// later recheck restarts clean (no phantom rule).
+function qcRecurCheck(el) {
+  _qcRecEnabled = el.checked;
+  if (_qcRecEnabled) {
+    setRecurChipsHighlight(_qcChip);
+  } else {
+    _qcChip = 'daily';
+    setRecurChipsHighlight(null);
+  }
+  document.querySelectorAll('#cal-qc-recur .qc-recur-chip').forEach(c => { c.disabled = !_qcRecEnabled; });
+}
+
+// Create the task with defaults (no goal, no priority fuss).
+// goalId is intentionally null here — same pattern as isDayPriority tasks
+// created by the morning ritual.
+// v1.21.0→v1.24.0: accepts a recurrence chip ('daily'|'weekly'|'monthly'|
+// '3_months'). A chip click = create immediately (no extra confirmation) AND
+// enables recurrence; Enter/button use the remembered state (_qcRecEnabled +
+// _qcChip). One-off = "Récurrent" unchecked. _qcChip is kept for the
+// "Plus d'options" pre-fill.
+async function submitCalQuickCreate(chip) {
+  const input = document.getElementById('cal-quick-create-input');
+  const title = input ? input.value.trim() : '';
+  if (!title) {
+    input && input.focus();
+    return;
+  }
+
+  const { dueDate, startTime, endTime } = _qcState;
+  let recEnabled = _qcRecEnabled;
+  let recChip = _qcChip;
+  if (chip) {
+    recEnabled = true;
+    recChip = chip;
+    _qcChip = chip;
+    _qcRecEnabled = true;
+  }
+  closeCalQuickCreate();
+
+  const id = uid();
+  const data = {
+    id,
+    title,
+    dueDate: dueDate || null,
+    startTime: startTime || null,
+    endTime: endTime || null,
+    duration: 30,
+    priority: 'medium',
+    goalId: null,       // quick-create: no goal required (same as isDayPriority tasks)
+    attachedRewardId: null,
+    recurrence: recEnabled ? buildQuickRecurrence(recChip, dueDate) : null,
+    completions: {},
+    exceptions: [],
+    done: false,
+    timerRunning: false,
+    createdAt: Date.now(),
+  };
+  state.tasks.unshift(data);
+  await saveDoc('tasks', id, data);
+  renderTasks();
+  if (currentView === 'calendar') renderCalendar();
+  toast(`✅ "${title}" ajoutée au calendrier`, 'success', 2500);
+}
+
+// "Plus d'options" — opens the full modal pre-filled with what was typed,
+// the date/time from the selection, AND the recurrence if it was enabled
+// (checkbox checked / a chip clicked); one-off otherwise, editable from there.
+// The popover closes first.
+function openCalQuickCreateFullModal() {
+  const input = document.getElementById('cal-quick-create-input');
+  const title = input ? input.value.trim() : '';
+  const { dueDate, startTime, endTime } = _qcState;
+  const rec = _qcRecEnabled ? buildQuickRecurrence(_qcChip, dueDate) : null;
+  closeCalQuickCreate();
+  openAddTaskModal(title, null, null, {
+    dueDate: dueDate || '',
+    startTime: startTime || '',
+    endTime: endTime || '',
+    isRecurring: rec ? 'true' : 'false',
+    frequency: rec ? rec.frequency : 'daily',
+    daysOfWeek: rec && rec.daysOfWeek ? rec.daysOfWeek.join(',') : '',
+    endDate: rec && rec.endDate ? rec.endDate : '',
+  });
+}
+
+// Wire up popover events (runs once at script load, before DOM is fully ready
+// — use event delegation / getElementById which is safe after DOMContentLoaded).
+document.addEventListener('DOMContentLoaded', () => {
+  const submitBtn = document.getElementById('cal-qc-submit');
+  const moreBtn   = document.getElementById('cal-qc-more-btn');
+  const input     = document.getElementById('cal-quick-create-input');
+
+  if (submitBtn) submitBtn.addEventListener('click', submitCalQuickCreate);
+  if (moreBtn)   moreBtn.addEventListener('click', openCalQuickCreateFullModal);
+
+  // v1.22.0→v1.24.0: render the SHARED recurrence block (Récurrent checkbox +
+  // chips) from js/recur.js — same markup/labels/rules as the task modal (one
+  // source of truth). Starts unchecked (one-off); openCalQuickCreate syncs it
+  // with the remembered state. Chip clicks route through the shared
+  // onRecurChipClick dispatcher, the checkbox through onRecurCheck.
+  const recurEl = document.getElementById('cal-qc-recur');
+  if (recurEl) recurEl.innerHTML = recurBlockHtml({ checked: false, selected: null, disabled: true });
+
+  if (input) {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submitCalQuickCreate(); }
+      if (e.key === 'Escape') { closeCalQuickCreate(); }
+    });
+  }
+
+  // Close on outside click
+  document.addEventListener('mousedown', e => {
+    const popover = document.getElementById('cal-quick-create');
+    if (popover && popover.classList.contains('active') && !popover.contains(e.target)) {
+      closeCalQuickCreate();
+    }
+  }, true);
+});
 
 // ───────────────────────────────────────────────────────────────
 // EXTERNAL CALENDAR INTEGRATION
@@ -354,7 +796,15 @@ document.getElementById('btn-connect-outlook-cal').addEventListener('click', () 
 });
 
 // --- TOOLBAR ---
-document.getElementById('add-event-btn').addEventListener('click', () => openAddEventModal());
+// Part B4: "+ Task" button → quick-create popover anchored to the button
+document.getElementById('add-event-btn').addEventListener('click', (e) => {
+  const anchorEl = e.currentTarget;
+  if (document.getElementById('cal-quick-create').classList.contains('active')) {
+    closeCalQuickCreate();
+    return;
+  }
+  openCalQuickCreate({ x: null, y: null, dueDate: dk(), startTime: null, endTime: null, anchorEl });
+});
 document.getElementById('cal-date-picker').addEventListener('change', e => {
   if (!e.target.value || !calendarInstance) return;
   calendarInstance.gotoDate(new Date(e.target.value + 'T12:00:00'));
@@ -384,68 +834,8 @@ function restoreCalendarConnections() {
 initMSAL();
 
 // ───────────────────────────────────────────────────────────────
-// EVENT MODALS (local app events + readonly external view)
+// EXTERNAL (SYNCED) EVENT MODAL — read-only, never edited here
 // ───────────────────────────────────────────────────────────────
-
-function openAddEventModal(prefillDate = null) {
-  openModal({
-    title: 'Add Event / Time Block',
-    sub: 'Block time on your calendar',
-    fields: [
-      { name: 'title', label: 'Event Title', placeholder: 'e.g. Doctor\'s appointment', required: true },
-      { name: 'date', label: 'Date', type: 'date', required: true, value: prefillDate || '' },
-      { name: 'startTime', label: 'Start Time', type: 'time' },
-      { name: 'endTime', label: 'End Time', type: 'time' },
-      { name: 'area', label: 'Category', type: 'select', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['finance', 'Finance']] },
-      { name: 'recurring', label: 'Recurring Daily?', type: 'select', options: [['false', 'No'], ['true', 'Yes — every day']] }
-    ],
-    submit: 'Add Event',
-    onSubmit: async v => {
-      const id = uid();
-      const data = { id, title: v.title, date: v.date, startTime: v.startTime, endTime: v.endTime, area: v.area, recurring: v.recurring === 'true', source: 'app', createdAt: Date.now() };
-      state.events.push(data);
-      await saveDoc('events', id, data);
-      renderCalendar();
-      if (typeof renderFamily !== 'undefined' && currentView === 'family') renderFamily();
-    }
-  });
-}
-
-function openAppEventModal(item) {
-  const deleteBtn = '<button type="button" class="btn btn-ghost" id="evt-delete-btn" style="margin-bottom:12px;color:var(--family)">🗑 Delete Event</button>';
-  openModal({
-    title: 'Edit Event / Time Block',
-    sub: 'Update or remove this time block',
-    customBody: deleteBtn,
-    fields: [
-      { name: 'title', label: 'Event Title', required: true, value: item.title },
-      { name: 'date', label: 'Date', type: 'date', required: true, value: item.date || '' },
-      { name: 'startTime', label: 'Start Time', type: 'time', value: item.startTime || '' },
-      { name: 'endTime', label: 'End Time', type: 'time', value: item.endTime || '' },
-      { name: 'area', label: 'Category', type: 'select', value: item.area || 'personal', options: [['personal', 'Personal'], ['family', 'Family'], ['career', 'Career'], ['finance', 'Finance']] }
-    ],
-    submit: 'Save Changes',
-    onSubmit: async v => {
-      Object.assign(item, {
-        title: v.title, date: v.date, startTime: v.startTime, endTime: v.endTime, area: v.area,
-      });
-      await saveDoc('events', item.id, item);
-      renderCalendar();
-      if (typeof renderFamily !== 'undefined' && currentView === 'family') renderFamily();
-    }
-  });
-  setTimeout(() => {
-    const del = document.getElementById('evt-delete-btn');
-    if (del) del.addEventListener('click', async () => {
-      closeModal();
-      state.events = state.events.filter(x => x.id !== item.id);
-      await deleteDoc('events', item.id);
-      renderCalendar();
-      if (typeof renderFamily !== 'undefined' && currentView === 'family') renderFamily();
-    });
-  }, 0);
-}
-
 function openExternalEventModal(ev) {
   const isGoogle = ev.type === 'google';
   const label = isGoogle ? 'Google Calendar' : 'Outlook Calendar';
@@ -465,6 +855,6 @@ function openExternalEventModal(ev) {
   });
 }
 
-export { enableCalButtons, handleGcalAuth, fetchGoogleCalendarEvents, connectGoogleCalendar, disconnectGoogleCalendar, initMSAL, connectOutlookCalendar, fetchOutlookCalendarEvents, disconnectOutlookCalendar, restoreCalendarConnections, renderCalendar, buildAllEvents, openAddEventModal, openAppEventModal, openExternalEventModal };
+export { enableCalButtons, handleGcalAuth, fetchGoogleCalendarEvents, connectGoogleCalendar, disconnectGoogleCalendar, initMSAL, connectOutlookCalendar, fetchOutlookCalendarEvents, disconnectOutlookCalendar, restoreCalendarConnections, renderCalendar, buildAllEvents, openExternalEventModal, taskOccurrenceContent, openCalQuickCreate, closeCalQuickCreate, submitCalQuickCreate, qcRecurCheck };
 
-Object.assign(window, { enableCalButtons, handleGcalAuth, fetchGoogleCalendarEvents, connectGoogleCalendar, disconnectGoogleCalendar, initMSAL, connectOutlookCalendar, fetchOutlookCalendarEvents, disconnectOutlookCalendar, restoreCalendarConnections, renderCalendar, buildAllEvents, openAddEventModal, openAppEventModal, openExternalEventModal });
+Object.assign(window, { enableCalButtons, handleGcalAuth, fetchGoogleCalendarEvents, connectGoogleCalendar, disconnectGoogleCalendar, initMSAL, connectOutlookCalendar, fetchOutlookCalendarEvents, disconnectOutlookCalendar, restoreCalendarConnections, renderCalendar, buildAllEvents, openExternalEventModal, taskOccurrenceContent, openCalQuickCreate, closeCalQuickCreate, submitCalQuickCreate, qcRecurCheck });

@@ -2,7 +2,7 @@
 name: second-brain-app
 description: Codebase knowledge for the "Second Brain" personal dashboard (vanilla JS + Firebase single-page app — index.html, app.js, style.css, firestore.rules, storage.rules). Use when adding, editing, or debugging features in this project — new modules, Firestore-backed data, dashboard widgets, modals, calendar/habit/task/journal/goals logic, or when asked to "vibe code" a spec into this app. Do NOT read app.js/index.html/style.css in full before checking this skill's references — they contain the same information pre-indexed at a fraction of the tokens.
 metadata:
-  version: 1.16.0
+  version: 1.24.0
   author: project-owner
   category: web-app-maintenance
 ---

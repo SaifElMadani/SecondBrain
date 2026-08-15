@@ -6,7 +6,7 @@ const VIEWS = {
   sprint: { title: '3-Month Sprint', sub: 'Your quarterly focus system' },
   notes: { title: 'Notes', sub: 'Your knowledge base' },
   documents: { title: 'Documents', sub: 'Files stored in the cloud' },
-  calendar: { title: 'Calendar', sub: 'Time blocking & events' },
+  calendar: { title: 'Calendar', sub: 'Time blocking & tasks' },
   goals: { title: 'Tasks / Goals / Habits', sub: 'Stay on track' },
   journal: { title: 'Journal', sub: 'Daily reflection' },
   family: { title: 'Family Mode', sub: 'Sacred time & baby milestones' },
@@ -14,6 +14,7 @@ const VIEWS = {
 
   timeaudit: { title: 'Time Audit', sub: 'Build real intuition about time' },
   wins: { title: 'Wins Log', sub: 'Every completion matters' },
+  rewards: { title: 'Rewards', sub: 'Celebrate what you unlock' },
   hobbies: { title: 'Hobbies', sub: 'Track your passions & progress' },
   finance: { title: 'Finance', sub: 'Manage your household budget' }
 };
@@ -72,6 +73,7 @@ function renderView(id) {
     case 'category': renderCategoryContent(); break;
     case 'timeaudit': renderTimeAudit(); break;
     case 'wins': renderWins(); break;
+    case 'rewards': renderRewards(); break;
     case 'hobbies': renderHobbies(); break;
     case 'finance': renderFinance(); break;
   }

@@ -349,6 +349,9 @@
       <button class="nav-btn" data-view="documents" id="nav-documents">
         <span class="nav-icon">📁</span> Documents
       </button>
+      <button class="nav-btn" data-view="rewards" id="nav-rewards">
+        <span class="nav-icon">🎁</span> Rewards
+      </button>
 
       <!-- Suivi accordion (fixed) -->
       <div class="sidebar-cat-node">
@@ -682,7 +685,7 @@
         <div class="view" id="view-calendar">
           <div class="calendar-toolbar">
             <input type="date" id="cal-date-picker" class="cal-date-picker" title="Aller à une date" />
-            <button class="btn btn-sm" id="add-event-btn">+ Event</button>
+            <button class="btn btn-sm" id="add-event-btn">+ Task</button>
           </div>
           <div class="cal-connect-bar">
             <button class="cal-connect-btn" id="btn-connect-google-cal">
@@ -905,6 +908,22 @@
           <div id="wins-list" class="wins-list"></div>
         </div>
 
+        <!-- ─── REWARDS ───────────────────────────────────── -->
+        <div class="view" id="view-rewards">
+          <div class="section-header">
+            <div>
+              <div class="section-title">🎁 Rewards</div>
+              <div class="section-sub">Create rewards and attach them to tasks & goals. Completing one unlocks it.</div>
+            </div>
+            <button class="btn" id="add-reward-btn">+ New Reward</button>
+          </div>
+          <div id="rewards-list"></div>
+          <div class="section-header" style="margin-top:28px">
+            <div class="section-title">🕘 Unlock History</div>
+          </div>
+          <div id="reward-grants-list"></div>
+        </div>
+
         <!-- ─── HOBBIES ────────────────────────────────────── -->
         <div class="view" id="view-hobbies">
           <div id="hobbies-list-view">
@@ -950,7 +969,29 @@
       <div class="bottom-nav-inner"></div>
     </nav>
 
-  </div><!-- /app -->
+    <!-- CALENDAR QUICK-CREATE POPOVER — positioned by JS on date click/drag -->
+    <div id="cal-quick-create" role="dialog" aria-label="Création rapide">
+      <div class="qc-header">Nouvelle tâche</div>
+      <input id="cal-quick-create-input" type="text" placeholder="Titre de la tâche…" autocomplete="off" />
+      <!-- v1.21.0+: one-click recurrence chips — a chip click creates the task
+           immediately (weekly = weekday of the clicked slot, monthly = same day
+           of month, no end date). v1.22.0: chips are rendered by the SHARED
+           js/recur.js component (same as the task modal) — this container is
+           populated at boot, nothing to keep in sync here. v1.24.0: the same
+           block now carries the "Récurrent" checkbox + 4 chips ("Une fois" is
+           the unchecked state), rendered by recurBlockHtml at boot. -->
+      <div id="cal-qc-recur" aria-label="Récurrence en un clic"></div>
+      <div class="qc-meta">
+        <span class="qc-date-label" id="cal-qc-date-label"></span>
+      </div>
+      <div class="qc-actions">
+        <button class="qc-more-link" id="cal-qc-more-btn" type="button">Plus d'options →</button>
+        <button class="qc-submit" id="cal-qc-submit" type="button">Créer ↵</button>
+      </div>
+      <div class="qc-hint">Entrée = créer · Échap = annuler · Une puce = créer + récurrente</div>
+    </div>
+
+    </div><!-- /app -->
 
   <!-- FullCalendar v6 (global builds — styles are injected by these scripts) -->
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.21/index.global.min.js"></script>
@@ -958,6 +999,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.21/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/list@6.1.21/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@6.1.21/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/rrule@2.7.1/dist/rrule.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/rrule@6.1.21/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.21/locales/fr.global.min.js"></script>
   <script type="module" src="js/main.js"></script>
   <script src="app.js" defer></script>

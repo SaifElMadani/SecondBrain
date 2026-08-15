@@ -25,6 +25,32 @@ facts. Everything above them is computed.
 
 ### 1. Task
 - Raw input: `done` (boolean). No progress concept beyond binary.
+- **v1.19.0 — recurring tasks**: a task with `recurrence` is NOT
+  binary. Its raw inputs are `completions` (a `{dateKey: boolean}` map
+  of done occurrences) and `exceptions` (dates skipped). It contributes
+  to its Goal's progress through the **exact same consistency formula
+  as Habits** — never via `done`/total. Implementation: `computeTaskConsistency(task)`
+  (in `js/habits.js`) projects `completions` onto a habit-like
+  `{ checkIns, frequency, deadline }` object and calls
+  `computeHabitProgress()` unchanged (no duplicated math):
+  - `recurrence.frequency` → the habit `frequency` (`'daily' | 'weekly' | 'monthly' | '3_months'`).
+  - `recurrence.endDate` → the habit `deadline` (deadline-based window);
+    absent → rolling 30-day consistency window (open-ended series).
+  - One-off tasks keep the binary rule above.
+- **v1.24.0 — "Tous les 3 mois" (`frequency: '3_months'`)**: exactly the
+  `'monthly'` logic with a 3× wider window — the unit is *calendar
+  quarters* (`triMonthKey` = `YYYY-Qn`, e.g. `2026-Q3`) instead of
+  months. One check-in anywhere inside a 3-month window = one
+  "successful window". Deadline progress =
+  `successfulWindows / triMonthsBetweenKeys(createdAt, deadline)` where
+  `triMonthsBetweenKeys(a, b) = max(1, ceil(monthsBetweenKeys(a, b) / 3))`;
+  rolling (no end date) = distinct recent windows /
+  `triMonthsBetweenKeys(30 days ago, today)` (≈1, i.e. any recent
+  check-in reads as fully consistent). `calcStreak` steps back 3 months
+  per streak unit. Implemented as new `'3_months'` branches in
+  `computeHabitProgress` + `calcStreak` (`js/habits.js`) with the same
+  `mode` handling; `computeTaskConsistency` passes the frequency through
+  unchanged.
 
 ### 2. Habit
 - Raw inputs: check-in history (per-day boolean, as already tracked),
