@@ -33,30 +33,6 @@ function getCategoryPathString(categoryId) {
   return getCategoryPath(categoryId).join(' > ');
 }
 
-function buildGoalOptions(categoryId = null) {
-  const opts = [['', '— Select a goal —']];
-  let goals = [];
-  if (categoryId) {
-    const catIds = new Set([categoryId]);
-    function collectDescendants(parentId) {
-      for (const child of getCategoryChildren(parentId)) {
-        catIds.add(child.id);
-        collectDescendants(child.id);
-      }
-    }
-    collectDescendants(categoryId);
-    goals = state.goals.filter(g => g.categoryId && catIds.has(g.categoryId));
-  } else {
-    goals = [...state.goals];
-  }
-  goals.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-  for (const g of goals) {
-    const catLabel = g.categoryId ? getCategoryPathString(g.categoryId) : '';
-    opts.push([g.id, (catLabel ? catLabel + ' → ' : '') + g.title]);
-  }
-  return opts;
-}
-
 // ─── ENERGY LEVEL ────────────────────────────────────────────
 // v1.15.0: ritual slider (1-10) now stores a level, not a raw number.
 function energyLevel(v) {
@@ -82,6 +58,6 @@ function toast(msg, type = 'info', durationMs = 3000) {
   setTimeout(() => { t.style.animation = 'toastOut .3s forwards'; setTimeout(() => t.remove(), 300); }, durationMs);
 }
 
-export { getGoalById, getTaskCategoryId, getHabitCategoryId, getLifeArea, getGoalLifeArea, getCategoryPathString, buildGoalOptions, toast, energyLevel, energyLabel };
+export { getGoalById, getTaskCategoryId, getHabitCategoryId, getLifeArea, getGoalLifeArea, getCategoryPathString, toast, energyLevel, energyLabel };
 
-Object.assign(window, { getGoalById, getTaskCategoryId, getHabitCategoryId, getLifeArea, getGoalLifeArea, getCategoryPathString, buildGoalOptions, toast, energyLevel, energyLabel });
+Object.assign(window, { getGoalById, getTaskCategoryId, getHabitCategoryId, getLifeArea, getGoalLifeArea, getCategoryPathString, toast, energyLevel, energyLabel });

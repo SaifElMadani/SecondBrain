@@ -10,6 +10,12 @@ const AREA_META = {
   other: { icon: '🗂', label: 'Other' }
 };
 
+// Current-quarter sprint objective ids (Part B: dashboard scoping)
+function currentSprintGoalIds() {
+  const q = getQuarterLabel();
+  return new Set(state.goals.filter(g => g.isSprintObjective && g.sprintQuarter === q).map(g => g.id));
+}
+
 function renderDashboard() {
   renderGreeting();
   renderDashStats();
@@ -59,7 +65,8 @@ function renderGreeting() {
   document.getElementById('greeting-text').textContent = `${greeting}, ${name} 👋`;
 
   // Today's sprint focus
-  const sprintGoals = state.goals.filter(g => g.isSprintObjective && g.sprintQuarter === getQuarterLabel());
+  const sprintGoals = state.goals.filter(g => g.isSprintObjective && g.sprintQuarter === getQuarterLabel())
+    .sort((a, b) => (a.sprintPriority === 'secondary' ? 1 : 0) - (b.sprintPriority === 'secondary' ? 1 : 0));
   const obj = sprintGoals[0];
   const focusEl = document.getElementById('today-focus');
   if (obj) {
@@ -74,9 +81,13 @@ function renderDashStats() {
   const startOfWeek = new Date(); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   const startOfWeekStr = dk(startOfWeek);
 
-  const doneTodayCount = state.tasks.filter(t => t.done && t.completedAt?.startsWith?.(today)).length;
-  const doneWeekCount = state.tasks.filter(t => t.done && t.completedAt >= startOfWeekStr).length;
-  const maxStreak = state.habits.reduce((max, h) => Math.max(max, calcStreak(h.checkIns || [], h.frequency || 'daily')), 0);
+  const sprintGoalIds = currentSprintGoalIds();
+  const sprintTasks = state.tasks.filter(t => sprintGoalIds.has(t.goalId));
+  const sprintHabits = state.habits.filter(h => sprintGoalIds.has(h.goalId));
+
+  const doneTodayCount = sprintTasks.filter(t => t.done && t.completedAt?.startsWith?.(today)).length;
+  const doneWeekCount = sprintTasks.filter(t => t.done && t.completedAt >= startOfWeekStr).length;
+  const maxStreak = sprintHabits.reduce((max, h) => Math.max(max, calcStreak(h.checkIns || [], h.frequency || 'daily')), 0);
 
   document.getElementById('stat-tasks-done').textContent = doneTodayCount;
   document.getElementById('stat-streak').textContent = maxStreak;
@@ -92,11 +103,12 @@ function dashHabitGroup(freq) {
 }
 
 function renderDashHabits() {
+  const sprintGoalIds = currentSprintGoalIds();
   const groups = { daily: [], weekly: [], monthly: [] };
-  state.habits.forEach(h => groups[dashHabitGroup(h.frequency)].push(h));
+  state.habits.filter(h => sprintGoalIds.has(h.goalId)).forEach(h => groups[dashHabitGroup(h.frequency)].push(h));
 
   const totalEl = document.getElementById('dash-habits-count');
-  if (totalEl) totalEl.textContent = state.habits.length ? `${state.habits.length}` : '';
+  if (totalEl) totalEl.textContent = (groups.daily.length + groups.weekly.length + groups.monthly.length) ? `${groups.daily.length + groups.weekly.length + groups.monthly.length}` : '';
 
   ['daily', 'weekly', 'monthly'].forEach(group => {
     const el = document.getElementById('dash-habits-' + group);
@@ -223,31 +235,48 @@ async function setDashEnergy(level) {
 }
 
 // ── Goals progress bars grouped by Life Area ──
+// Part B: shows ONLY current-quarter sprint objectives. Primary goals
+// render first and larger; secondary goals collapse by default. A goal
+// not flagged as a current sprint objective disappears from the
+// Dashboard (it still shows on its category / sprint pages).
 function renderDashGoals() {
   const el = document.getElementById('dash-body-goals');
+  const q = getQuarterLabel();
+  const sprintGoals = state.goals.filter(g => g.isSprintObjective && g.sprintQuarter === q);
   const buckets = {};
-  state.goals.forEach(g => {
+  sprintGoals.forEach(g => {
     const area = getGoalLifeArea(g) || 'other';
     if (!buckets[area]) buckets[area] = [];
-    buckets[area].push(computeGoalProgress(g));
+    buckets[area].push(g);
   });
   const keys = Object.keys(buckets);
   if (!keys.length) {
-    el.innerHTML = `<div style="font-size:13px; color:var(--text-muted)">No goals yet. <span style="color:var(--accent-light); cursor:pointer" onclick="goTo('goals')">Add goals →</span></div>`;
+    el.innerHTML = `<div style="font-size:13px; color:var(--text-muted)">No sprint objectives this quarter. <span style="color:var(--accent-light); cursor:pointer" onclick="goTo('sprint')">Add sprint objectives →</span></div>`;
     return;
   }
+  const goalRow = (g, big) => {
+    const p = computeGoalProgress(g).progress;
+    const color = (window.AREA_COLORS && AREA_COLORS[getGoalLifeArea(g)]) || 'var(--accent)';
+    return `<div class="dash-goal-row${big ? ' primary' : ' secondary'}">
+      <div class="dash-goal-row-head">
+        <span class="dash-goal-row-title" title="${esc(g.title)}">${esc(g.title)}</span>
+        <span class="dash-goal-row-num">${p}%</span>
+      </div>
+      <div class="dash-goal-area-bar"><div class="dash-goal-area-fill" style="width:${p}%;background:${color}"></div></div>
+    </div>`;
+  };
   el.innerHTML = keys.map(k => {
-    const items = buckets[k];
-    const avg = Math.round(items.reduce((s, g) => s + g.progress, 0) / items.length);
-    const color = (window.AREA_COLORS && AREA_COLORS[k]) || 'var(--accent)';
     const meta = AREA_META[k] || { icon: '🗂', label: k };
+    const areaGoals = buckets[k];
+    const prim = areaGoals.filter(g => g.sprintPriority !== 'secondary');
+    const sec = areaGoals.filter(g => g.sprintPriority === 'secondary');
     return `<div class="dash-goal-area">
       <div class="dash-goal-area-head">
         <span class="dash-goal-area-label">${meta.icon} ${meta.label}</span>
-        <span class="dash-goal-area-count">${items.length} goal${items.length > 1 ? 's' : ''}</span>
-        <span class="dash-goal-area-num">${avg}%</span>
+        <span class="dash-goal-area-count">${areaGoals.length} objective${areaGoals.length > 1 ? 's' : ''}</span>
       </div>
-      <div class="dash-goal-area-bar"><div class="dash-goal-area-fill" style="width:${avg}%;background:${color}"></div></div>
+      ${prim.map(g => goalRow(g, true)).join('')}
+      ${sec.length ? `<details class="dash-goal-secondary"><summary>📌 Secondary (${sec.length})</summary>${sec.map(g => goalRow(g, false)).join('')}</details>` : ''}
     </div>`;
   }).join('');
 }
@@ -256,14 +285,16 @@ function renderDashGoals() {
 function renderDashWeeklyChart() {
   const el = document.getElementById('dash-body-weekly');
   if (!el) return;
+  const sprintGoalIds = currentSprintGoalIds();
+  const sprintTasks = state.tasks.filter(t => sprintGoalIds.has(t.goalId));
   const dayLabels = [], dayCompleted = [], dayCreated = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000);
     const key = dk(d);
     const label = i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
     dayLabels.push(label);
-    dayCompleted.push(state.tasks.filter(t => t.done && t.completedAt?.startsWith?.(key)).length);
-    dayCreated.push(state.tasks.filter(t => {
+    dayCompleted.push(sprintTasks.filter(t => t.done && t.completedAt?.startsWith?.(key)).length);
+    dayCreated.push(sprintTasks.filter(t => {
       const created = t.createdAt ? dk(new Date(t.createdAt)) : null;
       return created === key;
     }).length);
@@ -312,13 +343,17 @@ function renderDashAchievements() {
   const today = dk();
   const sevenDaysAgo = dk(new Date(Date.now() - 7 * 86400000));
 
+  const sprintGoalIds = currentSprintGoalIds();
+  const sprintTasks = state.tasks.filter(t => sprintGoalIds.has(t.goalId));
+  const sprintHabits = state.habits.filter(h => sprintGoalIds.has(h.goalId));
+
   const todayEntries = state.timeEntries.filter(e => e.date === today);
   const totalMin = todayEntries.reduce((s, e) => s + (e.actualMin || 0), 0);
   const h = Math.floor(totalMin / 60), m = totalMin % 60;
   const timeUsed = totalMin >= 60 ? `${h}h ${m}m` : `${totalMin}m`;
 
-  const doneWeek = state.tasks.filter(t => t.done && t.completedAt >= sevenDaysAgo).length;
-  const activeStreaks = state.habits.map(h => ({ name: h.name, streak: calcStreak(h.checkIns || [], h.frequency || 'daily') })).filter(s => s.streak > 0).sort((a, b) => b.streak - a.streak);
+  const doneWeek = sprintTasks.filter(t => t.done && t.completedAt >= sevenDaysAgo).length;
+  const activeStreaks = sprintHabits.map(h => ({ name: h.name, streak: calcStreak(h.checkIns || [], h.frequency || 'daily') })).filter(s => s.streak > 0).sort((a, b) => b.streak - a.streak);
   const recentWins = state.wins.slice(-3).reverse();
 
   const allCats = {};
@@ -356,7 +391,7 @@ function renderDashAchievements() {
 
   // ── Tasks by category ──
   const taskBuckets = {};
-  state.tasks.filter(t => t.done && t.completedAt >= sevenDaysAgo).forEach(t => {
+  sprintTasks.filter(t => t.done && t.completedAt >= sevenDaysAgo).forEach(t => {
     const r = toRoot(getTaskCategoryId(t));
     const key = r || 'none';
     taskBuckets[key] = (taskBuckets[key] || 0) + 1;
@@ -379,7 +414,7 @@ function renderDashAchievements() {
   }
 
   const habitBuckets = {};
-  state.habits.forEach(h => {
+  sprintHabits.forEach(h => {
     const streak = calcStreak(h.checkIns || [], h.frequency || 'daily');
     if (streak <= 0) return;
     const r = toRoot(getHabitCategoryId(h));

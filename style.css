@@ -1372,6 +1372,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* ─── CONTENT ────────────────────────────────────────────────── */
 .content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow-y: auto;
   padding: 28px;
   -webkit-overflow-scrolling: touch;
@@ -1384,6 +1387,22 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .view.active {
   display: block;
+}
+
+/* Calendar view needs a real flex height so FullCalendar timegrid
+   can expand to fill the available space (height:'100%' in FC needs
+   a parent with a concrete height to work). */
+#view-calendar.view.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+#view-calendar #calendar {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ─── BOTTOM NAV BAR (mobile) ────────────────────────────────── */
@@ -1930,6 +1949,29 @@ input[type="range"]::-webkit-slider-thumb:hover {
   white-space: nowrap;
 }
 
+/* Recurring task badge (v1.19.0) */
+.recurring-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  background: rgba(45, 212, 191, .15);
+  color: #5EEAD4;
+  border: 1px solid rgba(45, 212, 191, .35);
+  white-space: nowrap;
+}
+
+/* Recurring task whose day isn't today — checkbox not actionable in lists */
+.task-check.disabled,
+.task-check-sm.disabled {
+  opacity: .3;
+  pointer-events: none;
+}
+
 /* Toast notifications */
 #toast-container {
   position: fixed;
@@ -2473,6 +2515,62 @@ input[type="range"]::-webkit-slider-thumb:hover {
   height: 100%;
   border-radius: 3px;
   transition: width .4s ease;
+}
+
+/* Sprint objective rows (Part B: primary larger, secondary collapsed) */
+.dash-goal-row {
+  margin-bottom: 8px;
+}
+
+.dash-goal-row.primary .dash-goal-row-head {
+  font-size: 13px;
+}
+
+.dash-goal-row.secondary {
+  opacity: .8;
+}
+
+.dash-goal-row.secondary .dash-goal-area-bar {
+  height: 4px;
+}
+
+.dash-goal-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.dash-goal-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.dash-goal-row-num {
+  font-weight: 700;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.dash-goal-secondary {
+  margin: 4px 0 8px;
+}
+
+.dash-goal-secondary summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0;
+  user-select: none;
+}
+
+.dash-goal-secondary summary:hover {
+  color: var(--accent-light);
 }
 
 /* Stats row */
@@ -3600,6 +3698,315 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* ---------------------------------------------------------------
+   CALENDAR QUICK-CREATE POPOVER (#cal-quick-create)
+   Small floating popover for rapid task entry — Outlook-style.
+   Positioned via JS at the click/selection point.
+--------------------------------------------------------------- */
+#cal-quick-create {
+  display: none;
+  position: fixed;
+  z-index: 3000;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+  padding: 14px 16px 12px;
+  width: 280px;
+  animation: popoverIn .15s ease;
+}
+
+#cal-quick-create.active {
+  display: block;
+}
+
+@keyframes popoverIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+#cal-quick-create .qc-header {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-weight: 600;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+#cal-quick-create-input {
+  width: 100%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 8px 10px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color .15s;
+}
+
+#cal-quick-create-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+#cal-quick-create .qc-meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#cal-quick-create .qc-meta .qc-date-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#cal-quick-create .qc-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 8px;
+}
+
+#cal-quick-create .qc-more-link {
+  font-size: 11.5px;
+  color: var(--accent-light);
+  cursor: pointer;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  white-space: nowrap;
+  transition: color .15s;
+}
+
+#cal-quick-create .qc-more-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+#cal-quick-create .qc-submit {
+  flex: 1;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 7px 12px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+#cal-quick-create .qc-submit:hover {
+  background: var(--accent-light);
+}
+
+#cal-quick-create .qc-hint {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------
+   QUICK-RECURRENCE (v1.21.0 → v1.24.0)
+   One-click recurrence UI — SHARED component (js/recur.js) used by
+   both the quick-create popover (#cal-quick-create) and the Add/Edit
+   Task modal (.modal-recur-wrap). v1.24.0: a "Récurrent" checkbox +
+   the frequency chips live on the SAME row (.recur-block); unchecked =
+   chips inert (disabled), task is a one-off. The modal's fine-tuning
+   fields are collapsed behind the ".recur-advanced-toggle" link.
+--------------------------------------------------------------- */
+.recur-block {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.recur-block .qc-recur {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.recur-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.recur-check-label input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Chips are inert while the "Récurrent" checkbox is unchecked — no hover
+   affordance, no click (the `disabled` attribute already blocks events). */
+.qc-recur-chip:disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
+.qc-recur {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.modal-recur-wrap {
+  margin-bottom: 18px;
+}
+
+.recur-advanced-toggle {
+  font-family: var(--font);
+  font-size: 11.5px;
+  color: var(--accent-light);
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 9px;
+  cursor: pointer;
+  transition: color .15s;
+}
+
+.recur-advanced-toggle:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+/* Weekday toggles (v1.23.0) — 7 buttons, one per day, in the modal's
+   "Options avancées" (shared component in js/recur.js). Active = --accent
+   (matches every other selected button in the app), inactive = --surface2. */
+.recur-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.recur-weekday {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 34px;
+  padding: 6px 0;
+  text-align: center;
+  color: var(--text-soft);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+
+.recur-weekday:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.recur-weekday.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.qc-recur-chip {
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+
+.qc-recur-chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--surface2);
+}
+
+.qc-recur-chip.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Hover checkbox on calendar events (Part B3)
+   Appears on hover without JS — pure CSS opacity transition.
+   The button is injected once via eventDidMount. */
+.ev-hover-check {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border2);
+  background: var(--surface);
+  color: #fff;
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity .15s, background .15s, border-color .15s;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.fc-event:hover .ev-hover-check,
+.fc-daygrid-event:hover .ev-hover-check,
+.fc-timegrid-event:hover .ev-hover-check {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ev-hover-check:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.ev-hover-check.done {
+  background: var(--success);
+  border-color: var(--success);
+  opacity: 0;
+}
+
+.fc-event:hover .ev-hover-check.done,
+.fc-daygrid-event:hover .ev-hover-check.done,
+.fc-timegrid-event:hover .ev-hover-check.done {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------
    FULLCALENDAR v6 THEME OVERRIDES
    (styles are injected by the global builds; these only re-skin them
    onto the app's tokens — --text/--text-soft for readability, per-type
@@ -3703,11 +4110,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-left: 3px solid var(--growth);
 }
 
-#view-calendar .fc .fc-event.ev-event {
-  background: var(--accent-dim);
-  border-left: 3px solid var(--accent);
-}
-
 #view-calendar .fc .fc-event.ev-google {
   background: rgba(255, 107, 107, .18);
   border-left: 3px solid var(--family);
@@ -3718,8 +4120,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-left: 3px solid var(--finance);
 }
 
-#view-calendar .fc .fc-event.ev-task .fc-event-title,
-#view-calendar .fc .fc-event.ev-event .fc-event-title {
+#view-calendar .fc .fc-event.ev-task .fc-event-title {
   color: var(--accent-light);
 }
 
@@ -3733,6 +4134,101 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 #view-calendar .fc .fc-event.ev-outlook .fc-event-title {
   color: var(--finance);
+}
+
+/* Recurring task occurrences (v1.19.0) — per-instance checkbox/title/skip */
+#view-calendar .fc .fc-event.ev-task-recurring {
+  background: rgba(45, 212, 191, .12);
+  border-left: 3px solid var(--success);
+  padding: 1px 2px;
+}
+
+#view-calendar .fc .fc-event.ev-task-done {
+  opacity: .55;
+}
+
+#view-calendar .fc .fc-event.ev-task-done .ev-occ-title {
+  text-decoration: line-through;
+  color: var(--text-soft);
+}
+
+#view-calendar .fc .fc-event.ev-skipped {
+  opacity: .3;
+  border-left-style: dashed;
+}
+
+.ev-occ {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+}
+
+.ev-occ-check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border2);
+  background: transparent;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ev-occ-check:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.ev-occ-check.done {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.ev-occ-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ev-occ-title:hover {
+  color: var(--accent-light);
+}
+
+.ev-occ-skip,
+.ev-occ-restore {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.ev-occ-skip:hover {
+  color: var(--danger);
+}
+
+.ev-occ-restore:hover {
+  color: var(--accent-light);
+}
+
+#view-calendar .fc .fc-event .ev-occ-title {
+  color: var(--text);
 }
 
 /* Timegrid slot labels + now indicator */
@@ -4825,6 +5321,400 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--finance);
 }
 
+/* Reward badges (Part A) */
+.reward-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 201, 42, .16);
+  color: #e2b93b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goal-reward-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+/* Goal picker — multi-step button selector (Life Area → subcat → goal) */
+.goal-picker {
+  margin-top: 4px;
+}
+
+.goal-picker-unselected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.goal-picker-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.goal-picker-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.goal-picker-chip {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.goal-picker-cat-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent-light);
+  font-weight: 600;
+}
+
+.goal-picker-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.goal-picker-steps {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+}
+
+.goal-picker-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.gp-crumb {
+  background: none;
+  border: none;
+  color: var(--accent-light);
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.gp-crumb:hover {
+  background: var(--accent-dim);
+}
+
+.gp-crumb.current {
+  color: var(--text-soft);
+  cursor: default;
+}
+
+.gp-crumb.current:hover {
+  background: none;
+}
+
+.gp-crumb-sep {
+  color: var(--text-muted);
+}
+
+.goal-picker-areas {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.goal-picker-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .15s ease, transform .15s ease;
+}
+
+.goal-picker-area:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.goal-picker-area-icon {
+  font-size: 22px;
+}
+
+.goal-picker-area-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.goal-picker-area-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.goal-picker-node-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.goal-picker-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 12px 0 8px;
+}
+
+.goal-picker-children {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.goal-picker-cat {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.goal-picker-cat:hover {
+  border-color: var(--accent);
+}
+
+.goal-picker-goal {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.goal-picker-goal:hover {
+  border-color: var(--accent);
+  background: var(--surface2);
+}
+
+.goal-picker-goal-name {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.goal-picker-goal .prog-track {
+  width: 100%;
+}
+
+.goal-picker-goal-pct {
+  display: block;
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.goal-picker-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.goal-picker-new {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 1px dashed var(--border2);
+  background: none;
+  color: var(--accent-light);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.goal-picker-new:hover {
+  background: var(--accent-dim);
+}
+
+/* Sprint page primary/secondary subgroups (Part B) */
+.sprint-subgroup {
+  margin-bottom: 8px;
+}
+
+.sprint-subgroup-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 8px 2px 6px;
+}
+
+.sprint-subgroup + .sprint-subgroup {
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+/* Rewards page */
+.rewards-archived-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 18px 0 8px;
+}
+
+.reward-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.reward-card.archived {
+  opacity: .55;
+}
+
+.reward-icon {
+  font-size: 26px;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 201, 42, .12);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.reward-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.reward-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.reward-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.reward-archived-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.reward-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.grant-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.grant-emoji {
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 201, 42, .12);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.grant-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.grant-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.grant-source {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.grant-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.reward-actions .btn {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.reward-actions .reward-del {
+  color: var(--danger);
+}
+
+.reward-actions .reward-del:hover {
+  background: rgba(255, 107, 107, .12);
+}
 .cat-children-header {
   display: flex;
   align-items: center;

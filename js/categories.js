@@ -378,11 +378,16 @@ function buildCategoryContent(cat) {
 
 function renderTaskInline(t) {
   const overdue = !t.done && t.dueDate && t.dueDate < dk();
+  const isRec = !!t.recurrence;
+  const occToday = isRec ? taskOccursOnDate(t, dk()) : null;
+  const tChecked = isRec ? !!((t.completions || {})[dk()]) : t.done;
   return `<div class="inline-task${t.done ? ' done' : ''}">
-    <button class="task-check-sm" onclick="toggleTask('${t.id}'); renderCategories()">${t.done ? '✓' : ''}</button>
+    <button class="task-check-sm${tChecked ? ' done' : ''}${isRec && !occToday ? ' disabled' : ''}" onclick="toggleTask('${t.id}'); renderCategories()">${tChecked ? '✓' : ''}</button>
     <span class="inline-task-title">${esc(t.title)}</span>
+    ${isRec ? '<span class="recurring-badge">🔁</span>' : ''}
     ${t.dueDate ? `<span class="inline-task-due${overdue ? ' overdue' : ''}">${relativeDay(t.dueDate)}</span>` : ''}
     ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+    ${rewardBadgeHtml(t.attachedRewardId)}
   </div>`;
 }
 
@@ -390,6 +395,7 @@ function renderGoalInline(g) {
   const p = computeGoalProgress(g);
   return `<div class="inline-goal">
     <span class="inline-goal-title">${esc(g.title)}</span>
+    ${rewardBadgeHtml(g.attachedRewardId, 'goal-reward-badge')}
     <div class="prog-track" style="flex:1;max-width:120px"><div class="prog-fill" style="width:${p.progress}%"></div></div>
     <span class="inline-goal-pct">${p.progress}%</span>
   </div>`;
@@ -573,12 +579,17 @@ function renderTabTasks(cat, catIds, today) {
     const undone = tasks.filter(t => !t.done);
     const done = tasks.filter(t => t.done);
     html += undone.map(t => {
+      const isRec = !!t.recurrence;
+      const occToday = isRec ? taskOccursOnDate(t, today) : null;
+      const tChecked = isRec ? !!((t.completions || {})[today]) : t.done;
       const overdue = !t.done && t.dueDate && t.dueDate < today;
       return `<div class="cat-page-task">
-        <button class="task-check-sm" onclick="toggleTask('${t.id}'); renderCategoryContent()">${t.done ? '✓' : ''}</button>
+        <button class="task-check-sm${tChecked ? ' done' : ''}${isRec && !occToday ? ' disabled' : ''}" onclick="toggleTask('${t.id}'); renderCategoryContent()">${tChecked ? '✓' : ''}</button>
         <span class="cat-page-task-title">${esc(t.title)}</span>
+        ${isRec ? '<span class="recurring-badge">🔁</span>' : ''}
         ${t.dueDate ? `<span class="cat-page-task-due${overdue ? ' overdue' : ''}">${relativeDay(t.dueDate)}</span>` : ''}
         ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+        ${rewardBadgeHtml(t.attachedRewardId)}
       </div>`;
     }).join('');
     if (done.length) {

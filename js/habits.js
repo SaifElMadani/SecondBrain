@@ -25,16 +25,21 @@
     const overdue = !t.done && t.dueDate && t.dueDate < today;
     const catId = getTaskCategoryId(t);
     const catTag = catId ? getCategoryPathString(catId) : '';
+    const isRec = !!t.recurrence;
+    const occToday = isRec ? taskOccursOnDate(t, today) : null;
+    const checked = isRec ? !!((t.completions || {})[today]) : t.done;
     return `<div class="task-card${t.done ? ' done' : ''}" data-id="${t.id}">
-      <button class="task-check" onclick="toggleTask('${t.id}'); renderTghTasks()" aria-label="Toggle task">
+      <button class="task-check${checked ? ' done' : ''}${isRec && !occToday ? ' disabled' : ''}" onclick="toggleTask('${t.id}'); renderTghTasks()" aria-label="Toggle task">
         <span class="task-check-mark">✓</span>
       </button>
       <div class="task-body" onclick="openAddTaskModal('', null, state.tasks.find(x=>x.id==='${t.id}'))" style="cursor:pointer">
         <div class="task-title">${esc(t.title)}</div>
         <div class="task-meta">
+          ${isRec ? '<span class="recurring-badge">🔁 Récurrente</span>' : ''}
           ${t.dueDate ? `<span class="task-due${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}${relativeDay(t.dueDate)}</span>` : ''}
           ${t.duration ? `<span class="task-duration">⏱ ${t.duration}m</span>` : ''}
           ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+          ${rewardBadgeHtml(t.attachedRewardId)}
           ${catTag ? `<span class="cat-module-tag">${esc(catTag)}</span>` : ''}
         </div>
       </div>
@@ -169,6 +174,19 @@ function monthsBetweenKeys(startKey, endKey) {
   return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
 }
 
+// v1.24.0: 3-month-window key, e.g. "2026-Q3" — the '3_months' unit. Same
+// logic as monthKey but on calendar quarters (3x wider window).
+function triMonthKey(dateOrKey) {
+  const [, m] = (typeof dateOrKey === 'string' ? dateOrKey : dk(dateOrKey)).split('-').map(Number);
+  const q = Math.floor((m - 1) / 3) + 1;
+  const y = (typeof dateOrKey === 'string' ? dateOrKey : dk(dateOrKey)).split('-')[0];
+  return `${y}-Q${q}`;
+}
+
+function triMonthsBetweenKeys(startKey, endKey) {
+  return Math.max(1, Math.ceil(monthsBetweenKeys(startKey, endKey) / 3));
+}
+
 function calcStreak(checkIns, frequency = 'daily') {
   if (!checkIns.length) return 0;
   const freq = frequency || 'daily';
@@ -194,6 +212,19 @@ function calcStreak(checkIns, frequency = 'daily') {
       if (inMonth.length === 0) break;
       streak++;
       d.setMonth(d.getMonth() - 1);
+    }
+    return streak;
+  }
+  // v1.24.0: every 3 months — same as monthly, stepping back 3 months.
+  if (freq === '3_months') {
+    let streak = 0;
+    const d = new Date();
+    for (let i = 0; i < 120; i++) {
+      const tk = triMonthKey(d);
+      const inTri = checkIns.filter(c => triMonthKey(c) === tk);
+      if (inTri.length === 0) break;
+      streak++;
+      d.setMonth(d.getMonth() - 3);
     }
     return streak;
   }
@@ -227,6 +258,12 @@ function computeHabitProgress(h) {
       const successMonths = new Set(inWindow.map(c => monthKey(c))).size;
       return { progress: Math.min(1, successMonths / totalMonths), mode: 'deadline' };
     }
+    // v1.24.0: every 3 months — same as monthly, on 3-month windows.
+    if (freq === '3_months') {
+      const totalWindows = triMonthsBetweenKeys(startKey, h.deadline);
+      const successWindows = new Set(inWindow.map(c => triMonthKey(c))).size;
+      return { progress: Math.min(1, successWindows / totalWindows), mode: 'deadline' };
+    }
     if (freq === '3x_per_week') {
       const totalWeeks = weeksBetweenKeys(startKey, h.deadline);
       return { progress: Math.min(1, inWindow.length / (3 * totalWeeks)), mode: 'deadline' };
@@ -247,6 +284,11 @@ function computeHabitProgress(h) {
     const totalMonths = monthsBetweenKeys(thirtyDaysAgo, dk());
     return { progress: Math.min(1, new Set(recent.map(c => monthKey(c))).size / totalMonths), mode: 'rolling' };
   }
+  // v1.24.0: every 3 months — same as monthly, on 3-month windows.
+  if (freq === '3_months') {
+    const totalWindows = triMonthsBetweenKeys(thirtyDaysAgo, dk());
+    return { progress: Math.min(1, new Set(recent.map(c => triMonthKey(c))).size / totalWindows), mode: 'rolling' };
+  }
   if (freq === '3x_per_week') {
     return { progress: Math.min(1, recent.length / (3 * totalWeeks)), mode: 'rolling' };
   }
@@ -254,6 +296,23 @@ function computeHabitProgress(h) {
     return { progress: recent.length > 0 ? 1 : 0, mode: 'rolling' };
   }
   return { progress: recent.length / 30, mode: 'rolling' };
+}
+
+// Recurring-task consistency — REUSES the Habit consistency formula
+// (progress-model-spec.md): a recurring task contributes to its Goal via
+// the exact same formula as Habits, not via done/total. The completions
+// map is projected onto a habit-like {checkIns, frequency, deadline}
+// object and fed into computeHabitProgress unchanged.
+function computeTaskConsistency(task) {
+  if (!task.recurrence) return { progress: task.done ? 1 : 0, mode: 'binary' };
+  const rec = task.recurrence;
+  const checkIns = Object.keys(task.completions || {}).filter(k => task.completions[k]);
+  return computeHabitProgress({
+    checkIns,
+    frequency: rec.frequency,
+    deadline: rec.endDate || null,
+    createdAt: task.createdAt,
+  });
 }
 
 async function toggleHabitDay(id, dateKey) {
@@ -268,6 +327,8 @@ async function toggleHabitDay(id, dateKey) {
     await logWin(`Habit: ${habit.name} ✓`, getHabitCategoryId(habit));
   }
   await saveDoc('habits', id, { checkIns: habit.checkIns });
+  const goal = getGoalById(habit.goalId);
+  if (goal) await checkGoalRewardCompletion(goal);
   renderHabits();
   renderDashHabits();
   renderDashStats();
@@ -282,15 +343,15 @@ async function toggleHabitToday(id) {
 
 function openAddHabitModal(item = null, overrides = {}) {
   const editing = !!item;
-  const goalOpts = buildGoalOptions(editing ? null : activeCategoryId || null);
+  window._editingHabit = item;
   openModal({
     title: editing ? 'Edit Habit' : 'New Habit',
     sub: editing ? 'Update habit details' : 'A daily practice that moves you forward',
     fields: [
-      { name: 'name', label: 'Habit Name', placeholder: 'e.g. 30-min walk', required: true, value: editing ? item.name : '' },
-      { name: 'goalId', label: 'Goal (Parent)', type: 'select', required: true, value: editing ? (item.goalId || '') : (overrides.goalId || ''), options: goalOpts },
-      { name: 'frequency', label: 'Frequency', type: 'select', value: editing ? (item.frequency || 'daily') : 'daily', options: [['daily', 'Daily'], ['weekly', 'Weekly'], ['3x_per_week', '3x / week'], ['monthly', 'Monthly'], ['once', 'Once']] },
-      { name: 'deadline', label: 'Target Date (optional)', type: 'date', value: editing ? (item.deadline || '') : '' }
+      { name: 'name', label: 'Habit Name', placeholder: 'e.g. 30-min walk', required: true, value: editing ? item.name : (overrides.name !== undefined ? overrides.name : '') },
+      { name: 'goalId', label: 'Goal (Parent)', type: 'goal-picker', required: true, goalPickerParent: 'habit', value: editing ? (item.goalId || '') : (overrides.goalId || '') },
+      { name: 'frequency', label: 'Frequency', type: 'select', value: editing ? (item.frequency || 'daily') : (overrides.frequency || 'daily'), options: [['daily', 'Daily'], ['weekly', 'Weekly'], ['3x_per_week', '3x / week'], ['monthly', 'Monthly'], ['once', 'Once']] },
+      { name: 'deadline', label: 'Target Date (optional)', type: 'date', value: editing ? (item.deadline || '') : (overrides.deadline || '') }
     ],
     submit: editing ? 'Save Changes' : 'Add Habit',
     onSubmit: async v => {
@@ -328,6 +389,6 @@ async function deleteHabit(id) {
 }
 
 
-export { renderTghTasks, renderHabits, renderHeatmap, calcStreak, computeHabitProgress, toggleHabitToday, toggleHabitDay, openAddHabitModal, deleteHabit, monthKey, monthsBetweenKeys };
+export { renderTghTasks, renderHabits, renderHeatmap, calcStreak, computeHabitProgress, computeTaskConsistency, toggleHabitToday, toggleHabitDay, openAddHabitModal, deleteHabit, monthKey, monthsBetweenKeys, triMonthKey, triMonthsBetweenKeys };
 
-Object.assign(window, { renderTghTasks, renderHabits, renderHeatmap, calcStreak, computeHabitProgress, toggleHabitToday, toggleHabitDay, openAddHabitModal, deleteHabit, monthKey, monthsBetweenKeys });
+Object.assign(window, { renderTghTasks, renderHabits, renderHeatmap, calcStreak, computeHabitProgress, computeTaskConsistency, toggleHabitToday, toggleHabitDay, openAddHabitModal, deleteHabit, monthKey, monthsBetweenKeys, triMonthKey, triMonthsBetweenKeys });

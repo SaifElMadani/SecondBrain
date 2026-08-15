@@ -27,7 +27,10 @@ function buildGoalAccordionHtml(g) {
           <div class="goal-card-title">${esc(g.title)}</div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             ${g.isSprintObjective ? `<span class="cat-module-tag">🚀 Sprint</span>` : ''}
+            ${g.sprintPriority === 'primary' ? `<span class="cat-module-tag">🎯 Primary</span>` : ''}
+            ${g.sprintPriority === 'secondary' ? `<span class="cat-module-tag">📌 Secondary</span>` : ''}
             ${catTag ? `<span class="cat-module-tag">${esc(catTag)}</span>` : ''}
+            ${rewardBadgeHtml(g.attachedRewardId, 'goal-reward-badge')}
           </div>
         </div>
         <div class="prog-track"><div class="prog-fill" style="width:${p.progress}%"></div></div>
@@ -57,12 +60,17 @@ function buildGoalAccordionHtml(g) {
           <button class="btn btn-sm" onclick="event.stopPropagation();openAddTaskModal('', null, null, {goalId:'${g.id}'})">+ Add task</button>
         </div>
         ${goalTasks.length ? goalTasks.map(t => {
+          const isRec = !!t.recurrence;
+          const occToday = isRec ? taskOccursOnDate(t, today) : null;
+          const tChecked = isRec ? !!((t.completions || {})[today]) : t.done;
           const overdue = !t.done && t.dueDate && t.dueDate < today;
           return `<div class="cat-page-task${t.done ? ' done' : ''}">
-            <button class="task-check-sm" onclick="toggleTask('${t.id}');rerenderGoalsList()">${t.done ? '✓' : ''}</button>
+            <button class="task-check-sm${tChecked ? ' done' : ''}${isRec && !occToday ? ' disabled' : ''}" onclick="toggleTask('${t.id}');rerenderGoalsList()">${tChecked ? '✓' : ''}</button>
             <span class="cat-page-task-title" onclick="openAddTaskModal('', null, state.tasks.find(x=>x.id==='${t.id}'))">${esc(t.title)}</span>
+            ${isRec ? '<span class="recurring-badge">🔁</span>' : ''}
             ${t.dueDate ? `<span class="cat-page-task-due${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}${relativeDay(t.dueDate)}</span>` : ''}
             ${t.priority ? `<span class="pri-badge ${t.priority}">${t.priority}</span>` : ''}
+            ${rewardBadgeHtml(t.attachedRewardId)}
             <span style="flex:1"></span>
             ${!t.done ? `<button class="task-timer-btn${t.timerRunning ? ' running' : ''}" onclick="startTaskTimer('${t.id}')" title="Start timer">▶</button>` : ''}
             <button class="btn btn-ghost btn-xs" onclick="deleteTask('${t.id}');rerenderGoalsList()">×</button>
@@ -135,22 +143,30 @@ function renderGoals() {
     </div>`).join('');
 }
 
-function openAddGoalModal(item = null) {
+function openAddGoalModal(item = null, prefill = {}, onCreated = null) {
   const editing = !!item;
-  const isSprint = editing ? (item.isSprintObjective || false) : false;
-  const initialCatId = editing ? (item.categoryId || '') : (activeCategoryId || '');
+  const isSprint = editing ? (item.isSprintObjective || false) : (prefill.isSprintObjective === 'true');
+  const initialCatId = editing ? (item.categoryId || '') : (prefill.categoryId || activeCategoryId || '');
+  const sprintPriorityVal = editing ? (item.sprintPriority || '') : (prefill.sprintPriority || '');
+  const rewardVal = editing ? (item.attachedRewardId || '') : (prefill.attachedRewardId || '');
   openModal({
     title: editing ? 'Edit Goal' : 'New Goal',
     sub: editing ? 'Update goal details' : 'A long-term outcome worth working towards',
     fields: [
-      { name: 'title', label: 'Goal Title', placeholder: 'e.g. Get promoted to senior role', required: true, value: editing ? item.title : '' },
+      { name: 'title', label: 'Goal Title', placeholder: 'e.g. Get promoted to senior role', required: true, value: editing ? item.title : (prefill.title !== undefined ? prefill.title : '') },
       { name: 'categoryId', label: 'Category', type: 'select', value: initialCatId, options: buildCategoryOptions() },
-      { name: 'deadline', label: 'Target Date', type: 'date', value: editing ? (item.deadline || '') : '' },
-      { name: 'isSprintObjective', label: 'Sprint Objective?', type: 'select', value: isSprint ? 'true' : 'false', options: [['false', 'No'], ['true', 'Yes — track in Sprint view']] }
+      { name: 'deadline', label: 'Target Date', type: 'date', value: editing ? (item.deadline || '') : (prefill.deadline || '') },
+      { name: 'isSprintObjective', label: 'Sprint Objective?', type: 'select', value: isSprint ? 'true' : 'false', options: [['false', 'No'], ['true', 'Yes — track in Sprint view']], onchange: 'toggleSprintPriorityField()' },
+      { name: 'sprintPriority', label: 'Objective Priority', type: 'select', hidden: !isSprint, value: sprintPriorityVal, options: [['', '— Choose —'], ['primary', '🎯 Primary'], ['secondary', '📌 Secondary']] },
+      { name: 'attachedRewardId', label: 'Reward on completion', type: 'select', value: rewardVal, options: buildRewardOptions(true), onchange: `goalRewardSelectChange('${item ? item.id : ''}')` }
     ],
     submit: editing ? 'Save Changes' : 'Add Goal',
     onSubmit: async v => {
       const makeSprint = v.isSprintObjective === 'true';
+      if (makeSprint && !v.sprintPriority) {
+        toast('Sprint objectives need a priority — choose Primary or Secondary.', 'error', 4000);
+        return;
+      }
       const quarterLabel = getQuarterLabel();
       const catId = v.categoryId || null;
       const lifeArea = catId ? getLifeArea(catId) : '';
@@ -158,19 +174,27 @@ function openAddGoalModal(item = null) {
         Object.assign(item, {
           title: v.title, area: lifeArea, deadline: v.deadline || null,
           categoryId: catId,
-          isSprintObjective: makeSprint, sprintQuarter: makeSprint ? quarterLabel : null
+          isSprintObjective: makeSprint, sprintQuarter: makeSprint ? quarterLabel : null,
+          sprintPriority: makeSprint ? (v.sprintPriority || 'primary') : null,
+          attachedRewardId: v.attachedRewardId || null
         });
         await saveDoc('goals', item.id, item);
+        await checkGoalRewardCompletion(item);
+        if (onCreated) onCreated(item.id);
       } else {
         const id = uid();
         const data = {
           id, title: v.title, area: lifeArea, deadline: v.deadline || null,
           milestones: [], progress: 0, categoryId: catId,
           isSprintObjective: makeSprint, sprintQuarter: makeSprint ? quarterLabel : null,
+          sprintPriority: makeSprint ? (v.sprintPriority || 'primary') : null,
+          attachedRewardId: v.attachedRewardId || null,
           weeklyActions: [], createdAt: Date.now()
         };
         state.goals.unshift(data);
         await saveDoc('goals', id, data);
+        await checkGoalRewardCompletion(data);
+        if (onCreated) onCreated(id);
       }
       if (catId) await ensureCategoryTabForType(catId, 'goals', '🎯 Goals');
       rerenderGoalsList();
@@ -189,6 +213,7 @@ async function adjustGoalProgress(id, delta) {
   }
   goal.progress = Math.max(0, Math.min(100, (goal.progress || 0) + delta));
   await saveDoc('goals', id, { progress: goal.progress });
+  await checkGoalRewardCompletion(goal);
   rerenderGoalsList();
   if (currentView === 'sprint') renderSprint();
 }
@@ -212,6 +237,7 @@ async function toggleMilestone(goalId, milestoneId) {
     goal.progress = Math.round((goal.milestones.filter(m => m.done).length / goal.milestones.length) * 100);
   }
   await saveDoc('goals', goalId, { milestones: goal.milestones, progress: goal.progress });
+  await checkGoalRewardCompletion(goal);
   rerenderGoalsList();
   if (currentView === 'sprint') renderSprint();
 }

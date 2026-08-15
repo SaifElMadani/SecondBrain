@@ -22,11 +22,12 @@ const state = {
   mealPlan: [],
   hobbies: [],
   categories: [],
-  events: [],
   financeMonths: [],
   wishlist: [],
   dateIdeas: [],
   checklistItems: [],
+  rewards: [],
+  rewardGrants: [],
   googleCalendarEvents: [],
   outlookCalendarEvents: [],
   settings: {

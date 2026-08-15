@@ -30,7 +30,7 @@ async function loadAllData() {
   }
 
   // Load collections
-  const collections = ['tasks', 'notes', 'habits', 'goals', 'captures', 'documents', 'sprints', 'timeEntries', 'familyBlocks', 'wins', 'babyMilestones', 'recipes', 'mealPlan', 'hobbies', 'categories', 'events', 'financeMonths', 'wishlist', 'dateIdeas', 'checklistItems'];
+  const collections = ['tasks', 'notes', 'habits', 'goals', 'captures', 'documents', 'sprints', 'timeEntries', 'familyBlocks', 'wins', 'babyMilestones', 'recipes', 'mealPlan', 'hobbies', 'categories', 'financeMonths', 'wishlist', 'dateIdeas', 'checklistItems', 'rewards', 'rewardGrants'];
   for (const c of collections) {
     const snap = await col(c).orderBy('createdAt', 'desc').get().catch(() => ({ docs: [] }));
     state[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));

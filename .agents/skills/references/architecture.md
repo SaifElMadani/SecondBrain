@@ -1,6 +1,6 @@
 # Architecture Map
 
-Loaded only when a task needs it — this is the level-3 detail behind SKILL.md.
+Loaded only when a task needs it � this is the level-3 detail behind SKILL.md.
 
 ## Stack
 
@@ -20,9 +20,10 @@ let state = {
   documents: [], sprints: [], timeEntries: [],
   familyBlocks: [], wins: [], babyMilestones: [],
   recipes: [], mealPlan: [], hobbies: [],
-  categories: [], events: [],
+  categories: [],          // v1.19.0: no `events` array � local events were merged into tasks
   financeMonths: [], wishlist: [],   dateIdeas: [],
   checklistItems: [],
+  rewards: [], rewardGrants: [],
   googleCalendarEvents: [], outlookCalendarEvents: [],
   settings: { name: '', babyDueDate: null, areas: ['family','career','growth','finance'],
     drinkReminder: { enabled: false, interval: 90 },
@@ -32,7 +33,7 @@ let state = {
 };
 ```
 
-Every array-valued key in `state` corresponds 1:1 to a Firestore subcollection of the same name under `users/{uid}/`. `journal` and `settings` are the two exceptions (object-shaped, not arrays — see firestore-schema.md).
+Every array-valued key in `state` corresponds 1:1 to a Firestore subcollection of the same name under `users/{uid}/`. `journal` and `settings` are the two exceptions (object-shaped, not arrays � see firestore-schema.md).
 
 **Phase 7**: Tasks/habits ont `goalId` (obligatoire) au lieu de `categoryId` direct. La catégorie se déduit via `goal.categoryId` (getters). Les goals stockent `categoryId`. Life area automatique : remonte le parentId jusqu'à la racine. Progression Sprint = % tasks complétées + régularité habits + ajustement manuel.
 
@@ -46,7 +47,7 @@ async function deleteDoc(collection, id)        // col(collection).doc(id).delet
 async function saveProfile(data)                // userRef().collection('profile').doc('main').set(data,{merge:true})
 ```
 
-All writes go through these three functions. All of them wrap Firestore calls in try/catch and call `toast(msg, 'error')` on failure — replicate this pattern for any new write helper rather than calling `db`/`col` directly.
+All writes go through these three functions. All of them wrap Firestore calls in try/catch and call `toast(msg, 'error')` on failure � replicate this pattern for any new write helper rather than calling `db`/`col` directly.
 
 `loadAllData()` (~L308) is the single bulk-read on login: fetches every subcollection into the matching `state.*` array and calls the initial render. After loadAllData, `seedInitialCategories()` runs to seed the initial category tree if empty, then `seedDateIdeas()` seeds 50 date ideas, and a migration step ensures any existing "Dates" category node has `moduleType: 'dateIdeas'`.
 
@@ -64,9 +65,9 @@ function renderView(id) { switch(id){ case 'dashboard': renderDashboard(); break
 
 To add a view: add a `VIEWS` entry, a `case` in `renderView()`, a `<div class="view" id="view-{id}">` block in index.html, and a nav button (`data-view="{id}"`) in both the sidebar nav and the bottom mobile nav.
 
-## Sidebar (index.html ~L304-360) — current order
+## Sidebar (index.html ~L304-360) � current order
 
-The sidebar has: **Dashboard** (nav-btn) → **Journal** (nav-btn) → **Calendar** (nav-btn) → **Suivi** (fixed accordion with Tasks / Goals & Habits / Wins / Time Logs) → **Documents** (nav-btn) → **dynamic category roots** rendered by `renderSidebarCategories()` (Family, Growth, Career, Finance).
+The sidebar has: **Dashboard** (nav-btn) �  **Journal** (nav-btn) �  **Calendar** (nav-btn) �  **Suivi** (fixed accordion with Tasks / Goals & Habits / Wins / Time Logs) �  **Documents** (nav-btn) �  **dynamic category roots** rendered by `renderSidebarCategories()` (Family, Growth, Career, Finance).
 
 The Suivi accordion children: Tasks calls `goTo('goals')` with `switchTghTab('tasks')`, Goals & Habits calls `goTo('goals')`, Wins calls `goTo('wins')`, Time Logs calls `goTo('timeaudit')`. The `goTo()` function auto-expands Suivi when navigating to these views.
 
@@ -82,36 +83,36 @@ let suiviExpanded = false;       // Suivi accordion expanded state
 
 **Sidebar accordion behavior**:
 - Root categories (parentId === null) are rendered as clickable nodes in the sidebar.
-- Clicking a category label → `goToCategory(id)`: navigates to `view-category`, shows filtered tasks/goals/habits in main area, AND expands the node's children in the sidebar.
-- Clicking the chevron → `toggleCategoryExpand(id)`: expands/collapses children without navigating.
-- Hover reveals action buttons: add child (+), edit (✎), delete (×).
+- Clicking a category label �  `goToCategory(id)`: navigates to `view-category`, shows filtered tasks/goals/habits in main area, AND expands the node's children in the sidebar.
+- Clicking the chevron �  `toggleCategoryExpand(id)`: expands/collapses children without navigating.
+- Hover reveals action buttons: add child (+), edit (�S}), delete (�).
 - Children are indented 16px per depth level.
 - All ancestors of the active category are auto-expanded so the path is visible.
-- The Suivi accordion is a fixed (non-dynamic) accordion with hardcoded children (Tasks → goals + tasks tab, Goals & Habits → goals, Wins → wins, Time Logs → timeaudit). Clicking a child calls `goTo()`. `goTo()` auto-expands Suivi when navigating to one of its children.
+- The Suivi accordion is a fixed (non-dynamic) accordion with hardcoded children (Tasks �  goals + tasks tab, Goals & Habits �  goals, Wins �  wins, Time Logs �  timeaudit). Clicking a child calls `goTo()`. `goTo()` auto-expands Suivi when navigating to one of its children.
 
 **Key functions**:
-- `renderSidebarCategories()` — rebuilds the sidebar accordion HTML
-- `buildSidebarNode(cat, depth)` — recursive: renders one node + its expandable children
-- `toggleCategoryExpand(id)` — toggles expansion without navigating
-- `goToCategory(id)` — navigates + expands + renders content (null → dashboard)
-- `renderCategoryContent()` — renders `view-category` for `activeCategoryId`. Dispatches to `buildMealsContent(cat)` for `meals`, `goTo('finance')` for `finance-table`, `renderDateIdeasContent(cat)` for `dateIdeas`. Pour les catégories `generic`, utilise un système d'onglets configurables stockés dans `cat.tabs` : chaque onglet peut être `tasks`, `goals`, `habits` ou `list`. Un bouton "+ Ajouter un onglet" permet d'en ajouter. Un seul onglet par type autorisé par page.
-- `toggleSuiviExpand()` — toggles the Suivi accordion children visibility
+- `renderSidebarCategories()` � rebuilds the sidebar accordion HTML
+- `buildSidebarNode(cat, depth)` � recursive: renders one node + its expandable children
+- `toggleCategoryExpand(id)` � toggles expansion without navigating
+- `goToCategory(id)` � navigates + expands + renders content (null �  dashboard)
+- `renderCategoryContent()` � renders `view-category` for `activeCategoryId`. Dispatches to `buildMealsContent(cat)` for `meals`, `goTo('finance')` for `finance-table`, `renderDateIdeasContent(cat)` for `dateIdeas`. Pour les catégories `generic`, utilise un système d'onglets configurables stockés dans `cat.tabs` : chaque onglet peut être `tasks`, `goals`, `habits` ou `list`. Un bouton "+ Ajouter un onglet" permet d'en ajouter. Un seul onglet par type autorisé par page.
+- `toggleSuiviExpand()` � toggles the Suivi accordion children visibility
 
 **Category CRUD** (unchanged from Phase 4):
 - `getCategoryById(id)`, `getCategoryChildren(parentId)`, `getCategoryPath(id)`, `getCategoryLabel(id)`, `getCategoryRoot(id)`
-- `buildCategoryOptions()` — flat dropdown options with indentation for modals
+- `buildCategoryOptions()` � flat dropdown options with indentation for modals
 - `openAddCategoryModal(parentId)`, `openEditCategoryModal(id)`, `deleteCategory(id)`
-- `buildCategoryContent(cat)` — legacy (dead code)
-- `buildMealsContent(cat)` — recipes + meal plan + grocery list scoped to a category
-- `seedInitialCategories()` — one-shot seed of Family/Growth/Career/Finance tree
+- `buildCategoryContent(cat)` � legacy (dead code)
+- `buildMealsContent(cat)` � recipes + meal plan + grocery list scoped to a category
+- `seedInitialCategories()` � one-shot seed of Family/Growth/Career/Finance tree
 
 **Delete strategy**: Reparent children to deleted node's parent. Unlink content (set categoryId to null). Confirmation dialog warns about orphans and linked content before proceeding.
 
 **Module types**: `generic` (onglets configurables : tasks/goals/habits/list), `meals` (recipes + meal planning), `finance-table` (redirects to Finance view), `dateIdeas` (quiz/assistant with filter + random pick). `renderCategoryContent()` checks `moduleType` before showing generic content.**
 
-**Phase 6 — Onglets configurables** : Les pages `generic` et la page Suivi utilisent un système d'onglets stocké dans `cat.tabs` (catégories) ou `state.settings.suiviTabs` (Suivi). Chaque onglet a un `type` (`tasks`, `goals`, `habits`, `list`), un `id` unique, et un `label`. L'utilisateur peut ajouter/supprimer des onglets ; un seul par type par page. Le type `list` est une checklist simple (collection `checklistItems`) sans date/priorité/timer. Migration automatique : les pages avec du contenu existant reçoivent des onglets par défaut.
+**Phase 6 � Onglets configurables** : Les pages `generic` et la page Suivi utilisent un système d'onglets stocké dans `cat.tabs` (catégories) ou `state.settings.suiviTabs` (Suivi). Chaque onglet a un `type` (`tasks`, `goals`, `habits`, `list`), un `id` unique, et un `label`. L'utilisateur peut ajouter/supprimer des onglets ; un seul par type par page. Le type `list` est une checklist simple (collection `checklistItems`) sans date/priorité/timer. Migration automatique : les pages avec du contenu existant reçoivent des onglets par défaut.
 
-## Phase 7 — Restructuration Goal = conteneur Tasks/Habits
+## Phase 7 � Restructuration Goal = conteneur Tasks/Habits
 
 **Goal** devient un conteneur de tasks et habits :
 - Les tasks ont désormais `goalId` (obligatoire) à la place de `categoryId` direct.
@@ -120,51 +121,51 @@ let suiviExpanded = false;       // Suivi accordion expanded state
 - Migration automatique : au lancement, les tasks/habits existantes avec `categoryId` mais sans `goalId` sont regroupées par catégorie et reçoivent un goal "Non classé (Catégorie)" créé automatiquement.
 
 Helpers ajoutés (app.js ~L92-140) :
-- `getGoalById(id)` — lookup simple
-- `getTaskCategoryId(task)` — déduit via goal ou fallback legacy
-- `getHabitCategoryId(habit)` — déduit via goal ou fallback legacy
-- `getLifeArea(categoryId)` — remonte jusqu'à la racine pour déterminer Family/Growth/Career/Finance
-- `getGoalLifeArea(goal)` — utilise `goal.area` ou `getLifeArea(goal.categoryId)`
-- `getCategoryPathString(categoryId)` — "Growth > Video games > Dofus"
-- `buildGoalOptions(categoryId?)` — dropdown des goals filtrés par catégorie
+- `getGoalById(id)` � lookup simple
+- `getTaskCategoryId(task)` � déduit via goal ou fallback legacy
+- `getHabitCategoryId(habit)` � déduit via goal ou fallback legacy
+- `getLifeArea(categoryId)` � remonte jusqu'à la racine pour déterminer Family/Growth/Career/Finance
+- `getGoalLifeArea(goal)` � utilise `goal.area` ou `getLifeArea(goal.categoryId)`
+- `getCategoryPathString(categoryId)` � "Growth > Video games > Dofus"
+- `buildGoalOptions(categoryId?)` � **REMOVED (v1.18.0)** � remplacé par le goal-picker en boutons (`js/goal-picker.js`, champ modal `type: 'goal-picker'`). Plus aucun dropdown texte pour choisir un goal parent.
 
 La progression Sprint combine désormais (%) :
 - **Auto** : % tasks complétées liées au goal + régularité habits (7 derniers jours)
 - **Manuel** : ajusté via les boutons +/- (toujours possible)
 - Les deux coexistent : l'auto est affiché par défaut, le manuel s'ajoute en complément.
-- Clic 📊 sur un objectif Sprint → panneau détail : liste des tasks/habits liés.
-- **Barre globale Sprint** : moyenne des `displayPct` de tous les goals sprint du trimestre courant (live, jamais stockée). Si 0 objectifs → affiche "No objectives yet".
+- Clic �x` sur un objectif Sprint �  panneau détail : liste des tasks/habits liés.
+- **Barre globale Sprint** : moyenne des `displayPct` de tous les goals sprint du trimestre courant (live, jamais stockée). Si 0 objectifs �  affiche "No objectives yet".
 - **Réactivité** : `toggleTask`, `toggleHabitToday`, `deleteTask`, `deleteHabit`, `openAddTaskModal`, `openAddHabitModal` rappellent `renderSprint()`.
 
 ## Goals tab accordion pattern (Phase 7.1 / v1.2.0)
 
 The Goals tab renders each goal row as a **collapsible accordion**. The same builder (`buildGoalAccordionHtml(g)`) is used on the Suivi Goals tab AND the category-page Goals tab (`renderTabGoals`).
 
-- **State**: `window._expandedGoals` (Set of goal IDs) — not persisted across reloads.
-- **Toggle function**: `toggleGoalExpand(id)` — toggles membership and calls `rerenderGoalsList()`.
-- **`rerenderGoalsList()`**: view-aware re-render — on the category view it calls `renderCategoryContent()`, on the Sprint view `renderSprint()`, otherwise `renderGoals()`. Used by every accordion inline mutation handler.
-- **Header** (always visible): chevron (▶ rotates 90° on expand), title, sprint tag, category tag, progress bar, auto/manual label, link count, ✎ pencil (edit metadata) and × delete buttons.
-- **Click semantics**: clicking the header/chevron expands the accordion ONLY. Editing goal metadata is a separate action via the ✎ pencil → `openAddGoalModal(g)` (small 4-field modal). The whole-header-open-modal behavior is gone.
+- **State**: `window._expandedGoals` (Set of goal IDs) � not persisted across reloads.
+- **Toggle function**: `toggleGoalExpand(id)` � toggles membership and calls `rerenderGoalsList()`.
+- **`rerenderGoalsList()`**: view-aware re-render � on the category view it calls `renderCategoryContent()`, on the Sprint view `renderSprint()`, otherwise `renderGoals()`. Used by every accordion inline mutation handler.
+- **Header** (always visible): chevron (�� rotates 90° on expand), title, sprint tag, category tag, progress bar, auto/manual label, link count, �S} pencil (edit metadata) and � delete buttons.
+- **Click semantics**: clicking the header/chevron expands the accordion ONLY. Editing goal metadata is a separate action via the �S} pencil �  `openAddGoalModal(g)` (small 4-field modal). The whole-header-open-modal behavior is gone.
 - **Expanded body**: milestones (if any), tasks list (with check/edit/delete, "+ Add task" button), habits list (with check-in/streak/delete, "+ Add habit" button), manual stepper buttons (when mode=manual).
 - **Child items** reuse existing patterns: `task-check-sm` + `cat-page-task` for tasks, `task-check-sm` + `cat-page-habit` for habits, `openAddTaskModal(..., {goalId})` and `openAddHabitModal(..., {goalId})` for creation with pre-filled parent.
 - **Re-render**: inline `onclick` handlers call `rerenderGoalsList()` after mutations (`toggleTask`, `toggleHabitToday`, `deleteTask`, `deleteHabit`).
 
-## Edit Goal modal — metadata only (v1.2.0)
+## Edit Goal modal � metadata only (v1.2.0)
 
 `openAddGoalModal(item)` is a small dialog with exactly 4 fields: `title`, `categoryId`, `deadline`, `isSprintObjective`. No milestones, no weekly actions (removed per user request), no tasks/habits list (those live exclusively in the accordion). New goals get `milestones: []` and `weeklyActions: []`; editing keeps existing values. `onSubmit` calls `rerenderGoalsList()` + `renderSprint()`.
 
-## Habits tab — flat list (Phase 7.1)
+## Habits tab � flat list (Phase 7.1)
 
-`renderHabits` no longer groups by root category — renders all habits as a flat list.
+`renderHabits` no longer groups by root category � renders all habits as a flat list.
 
-## Habit progress — deadline-aware (v1.3.0)
+## Habit progress � deadline-aware (v1.3.0)
 
-`computeHabitProgress(h)` derives a single habit's progress (0..1) at render time — never stored:
+`computeHabitProgress(h)` derives a single habit's progress (0..1) at render time � never stored:
 
 - **If `h.deadline` set**: `totalDaysWindow = max(1, daysBetween(createdAt, deadline))` (fixed, doesn't shrink after the deadline passes); `completedCheckIns` = count of check-ins between `createdAt` and `min(today, deadline)`; `progress = min(1, completedCheckIns / totalDaysWindow)`.
-- **If no `h.deadline`**: existing rolling 30-day consistency score (`checkIns ≥ now-30d` / 30) — unchanged, backward compatible, no migration.
+- **If no `h.deadline`**: existing rolling 30-day consistency score (`checkIns �0� now-30d` / 30) � unchanged, backward compatible, no migration.
 - `calcStreak` stays a separate displayed number in both cases (never merged into progress).
-- This is the value used by the Goal weighted average (`computeGoalProgress`) — a goal with habits feeds `average(computeHabitProgress(h))`, count-weighted against tasks, exactly like task completion. The `habitDetails` entries carry `mode: 'deadline' | 'rolling'` for mode-aware labels (sprint detail view).
+- This is the value used by the Goal weighted average (`computeGoalProgress`) � a goal with habits feeds `average(computeHabitProgress(h))`, count-weighted against tasks, exactly like task completion. The `habitDetails` entries carry `mode: 'deadline' | 'rolling'` for mode-aware labels (sprint detail view).
 - Progress surfaces in `renderHabits` (Suivi), `buildGoalAccordionHtml` + `renderTabHabits` (category), sprint detail.
 
 New helpers: `computeHabitProgress(h)` (near `calcStreak`, ~L2780), `daysBetween(a, b)` (utilities, ~L75, date-key string diff). `openAddHabitModal` gained an optional `deadline` date field (persisted on the habit doc; `null` when unset).
@@ -173,150 +174,151 @@ New helpers: `computeHabitProgress(h)` (near `calcStreak`, ~L2780), `daysBetween
 
 All habit logic lives in `js/habits.js` (post-module-split).
 
-- **`frequency` field** on the habit doc: `'daily'` (default when absent — no migration) | `'weekly'` | `'3x_per_week'` | `'once'` | `'monthly'` (v1.15.0). Set in the Add/Edit Habit modal (`openAddHabitModal` gains a `frequency` select), persisted via `saveDoc('habits', ...)`.
-- **`calcStreak(checkIns, frequency)`** — frequency-aware. `'weekly'` = consecutive successful ISO weeks (any check-in per week); `'3x_per_week'` = consecutive weeks with ≥3 check-ins; `'once'` = 1 if any check-in; `'monthly'` (v1.15.0) = consecutive successful calendar months (`monthKey` = `YYYY-MM`, ≥1 check-in per month). All consumers (dashboard.js, categories.js, goals.js, sprint.js, habits.js) now pass `h.frequency || 'daily'`.
-- **`computeHabitProgress(h)`** — deadline/rolling math per frequency; returns `{ progress, mode: 'deadline'|'rolling' }` unchanged so Goal/Sprint aggregation is frequency-agnostic. See `progress-model-spec.md` §2.
-- **Helpers**: `isoWeekKey(dateOrKey)` (`YYYY-Www`, ISO), `weeksBetweenKeys(a, b)` (inclusive ISO-week count), `monthKey(dateOrKey)` (`YYYY-MM`, v1.15.0), `monthsBetweenKeys(a, b)` (inclusive calendar-month count, v1.15.0) — module-local (exported on `window` for dashboard reuse).
+- **`frequency` field** on the habit doc: `'daily'` (default when absent � no migration) | `'weekly'` | `'3x_per_week'` | `'once'` | `'monthly'` (v1.15.0). Set in the Add/Edit Habit modal (`openAddHabitModal` gains a `frequency` select), persisted via `saveDoc('habits', ...)`.
+- **`calcStreak(checkIns, frequency)`** � frequency-aware. `'weekly'` = consecutive successful ISO weeks (any check-in per week); `'3x_per_week'` = consecutive weeks with �0�3 check-ins; `'once'` = 1 if any check-in; `'monthly'` (v1.15.0) = consecutive successful calendar months (`monthKey` = `YYYY-MM`, �0�1 check-in per month). All consumers (dashboard.js, categories.js, goals.js, sprint.js, habits.js) now pass `h.frequency || 'daily'`.
+- **`computeHabitProgress(h)`** � deadline/rolling math per frequency; returns `{ progress, mode: 'deadline'|'rolling' }` unchanged so Goal/Sprint aggregation is frequency-agnostic. See `progress-model-spec.md` §2.
+- **Helpers**: `isoWeekKey(dateOrKey)` (`YYYY-Www`, ISO), `weeksBetweenKeys(a, b)` (inclusive ISO-week count), `monthKey(dateOrKey)` (`YYYY-MM`, v1.15.0), `monthsBetweenKeys(a, b)` (inclusive calendar-month count, v1.15.0) � module-local (exported on `window` for dashboard reuse).
 - **Clickable heatmap**: `renderHeatmap(container, checkIns, habit)` renders cells with `heatmap-clickable` (past/today, `onclick="toggleHabitDay(id, key)"`) vs `heatmap-future` (dimmed, no-op). **`toggleHabitDay(id, dateKey)`** toggles any past/today check-in (writes `checkIns`, saves, re-renders habits/dash/category/sprint + `rerenderGoalsList()`); `toggleHabitToday(id)` is now a thin wrapper. CSS: `.heatmap-cell.heatmap-clickable/.heatmap-future` in style.css ~L1475.
 
-## Tasks tab — grouped by goal (Phase 7.1)
+## Tasks tab � grouped by goal (Phase 7.1)
 
-`renderTghTasks` changed from grouping by root category to grouping by parent goal (`goalId` → `goal.title`). Section header per goal. Undated tasks remain in their own ungrouped section.
+`renderTghTasks` changed from grouping by root category to grouping by parent goal (`goalId` �  `goal.title`). Section header per goal. Undated tasks remain in their own ungrouped section.
 
-## v1.8.0 — timer shortcuts, calendar nav, non-blocking widgets
+## v1.8.0 � timer shortcuts, calendar nav, non-blocking widgets
 
 ### Play button in goal accordion tasks
 
-In `buildGoalAccordionHtml` (`js/goals.js`), each task row now includes a `task-timer-btn` ▶ button (when `!t.done`) that calls `startTaskTimer('${t.id}')` directly — same class/behavior as the Tasks page, so a timer can be started from a Goal's expanded accordion without leaving the page. `startTaskTimer` still toasts an error if the task has no `duration`.
+In `buildGoalAccordionHtml` (`js/goals.js`), each task row now includes a `task-timer-btn` �� button (when `!t.done`) that calls `startTaskTimer('${t.id}')` directly � same class/behavior as the Tasks page, so a timer can be started from a Goal's expanded accordion without leaving the page. `startTaskTimer` still toasts an error if the task has no `duration`.
 
 ### Calendar navigation shortcuts
 
-**v1.16.0**: The custom toolbar shortcuts (`#cal-today`/`#cal-week-next`/`#cal-month-next`, `calYear`/`calMonth` state) were removed — the calendar is now FullCalendar and its built-in toolbar (`prev,next today` + view buttons) handles all navigation via the FC API (`calendar.today()/prev()/next()/gotoDate()`). See the v1.16.0 section.
+**v1.16.0**: The custom toolbar shortcuts (`#cal-today`/`#cal-week-next`/`#cal-month-next`, `calYear`/`calMonth` state) were removed � the calendar is now FullCalendar and its built-in toolbar (`prev,next today` + view buttons) handles all navigation via the FC API (`calendar.today()/prev()/next()/gotoDate()`). See the v1.16.0 section.
 
 ### Non-blocking timer & pause widgets
 
-Both previously full-screen overlays are now compact `position: fixed` corner widgets — they stay visible and keep running while navigating views (the timer interval is module-global in `js/pomodoro.js`, unaffected by `goTo()`):
+Both previously full-screen overlays are now compact `position: fixed` corner widgets � they stay visible and keep running while navigating views (the timer interval is module-global in `js/pomodoro.js`, unaffected by `goTo()`):
 
-- **`#overlay-timer`** (active task timer) → fixed **bottom-right** card (`.timer-widget`): task name, time display, progress bar, ✓ Mark Complete / Cancel. No full-screen backdrop, so clicks pass through to the app.
-- **`#screen-pause`** (60s post-completion breathing pause, opened from `toggleTask` via `openPauseScreen`) → fixed **bottom-left** card (`.pause-widget`): ring countdown (same `#pause-ring-circle` / `#pause-countdown` / 502.65 circumference math), win-log input, "Continue to next task" button (still unlocks after 60s), plus a new ✕ **close button** (`#pause-close-btn`, handler added in `js/pomodoro.js`) that dismisses the widget immediately (clears the interval).
+- **`#overlay-timer`** (active task timer) �  fixed **bottom-right** card (`.timer-widget`): task name, time display, progress bar, �S Mark Complete / Cancel. No full-screen backdrop, so clicks pass through to the app.
+- **`#screen-pause`** (60s post-completion breathing pause, opened from `toggleTask` via `openPauseScreen`) �  fixed **bottom-left** card (`.pause-widget`): ring countdown (same `#pause-ring-circle` / `#pause-countdown` / 502.65 circumference math), win-log input, "Continue to next task" button (still unlocks after 60s), plus a new �S" **close button** (`#pause-close-btn`, handler added in `js/pomodoro.js`) that dismisses the widget immediately (clears the interval).
 - All element IDs referenced by `js/pomodoro.js` are unchanged (`timer-task-name`, `timer-display`, `timer-bar-fill`, `timer-done-btn`, `timer-cancel-btn`, `pause-title`, `pause-countdown`, `pause-ring-circle`, `pause-win-input`, `pause-skip-btn`).
-- CSS in `style.css`: `#overlay-timer`/`#screen-pause` are `display:none` → `.active { display:block }` boxes; the mobile media query raises both above the bottom nav (`bottom: calc(76px + env(safe-area-inset-bottom))`). The `.pause-breath` element and its `breathe` keyframes were removed (replaced by the ring-in-card layout).
+- CSS in `style.css`: `#overlay-timer`/`#screen-pause` are `display:none` �  `.active { display:block }` boxes; the mobile media query raises both above the bottom nav (`bottom: calc(76px + env(safe-area-inset-bottom))`). The `.pause-breath` element and its `breathe` keyframes were removed (replaced by the ring-in-card layout).
 
-## v1.9.0 / v1.16.0 — calendar: FullCalendar v6 (CalendarJS removed), modal date shortcuts
+## v1.9.0 / v1.16.0 � calendar: FullCalendar v6 (CalendarJS removed), modal date shortcuts
 
 ### Calendar rendering (`js/calendar.js` + `index.html` `#view-calendar`)
 
-**v1.16.0 Migration (current)**: The calendar is **FullCalendar v6.1.21** loaded via CDN global builds (no bundler). All prior layers were removed — CalendarJS (`@calendarjs/ce`, `calendarjs.Schedule`/`Timeline`) and the older homemade custom DOM grid (`calYear`/`calMonth`, `refDate`, `getEventsForDate`, `buildDayCell`, `#calendarjs-root`, `#calendarjs-schedule`/`-timeline`) no longer exist. See the full v1.16.0 section below.
+**v1.16.0 Migration (current)**: The calendar is **FullCalendar v6.1.21** loaded via CDN global builds (no bundler). All prior layers were removed � CalendarJS (`@calendarjs/ce`, `calendarjs.Schedule`/`Timeline`) and the older homemade custom DOM grid (`calYear`/`calMonth`, `refDate`, `getEventsForDate`, `buildDayCell`, `#calendarjs-root`, `#calendarjs-schedule`/`-timeline`) no longer exist. See the full v1.16.0 section below.
 
 ### Calendar date picker (`js/calendar.js` + `index.html`)
 
-- `<input type="date" id="cal-date-picker">` in the toolbar calls `calendarInstance.gotoDate()` on change (v1.16.0 — FullCalendar API, no manual re-render).
+- `<input type="date" id="cal-date-picker">` in the toolbar calls `calendarInstance.gotoDate()` on change (v1.16.0 � FullCalendar API, no manual re-render).
 
 ### Modal date shortcuts (`js/modal.js` + `style.css`)
 
 - `buildField` now appends `.date-shortcuts` under **every `type:'date'` input** (Task dueDate, Event date, Goal deadline, Habit deadline, etc.): four pill buttons **Demain / Semaine prochaine / Mois prochain / Dans 3 mois**.
-- Each calls global `setDateShortcut(inputId, key)` (exported + on `window`), which pre-fills the input with the date computed **from today** (inline formatting, no `dk()` dependency) — modal stays open, user can still adjust manually. `onSubmit` reads the field value normally.
+- Each calls global `setDateShortcut(inputId, key)` (exported + on `window`), which pre-fills the input with the date computed **from today** (inline formatting, no `dk()` dependency) � modal stays open, user can still adjust manually. `onSubmit` reads the field value normally.
 
-## v1.10.0 — unified event modal, modal date shortcuts
+## v1.10.0 � unified event modal, modal date shortcuts
 
 ### Unified event creation
 
-- **Removed `openDayModal`** (the divergent day-cell modal: title/area/startTime/endTime only, no date/recurring fields, no save of `date`). Day-cell clicks now call **`openAddEventModal(key)`** — the exact same modal as the `+Event` button.
+- **Removed `openDayModal`** (the divergent day-cell modal: title/area/startTime/endTime only, no date/recurring fields, no save of `date`). Day-cell clicks now call **`openAddEventModal(key)`** � the exact same modal as the `+Event` button.
 - `openAddEventModal(prefillDate = null)` gained an optional prefill: the `date` field is pre-filled with the clicked day's key (`'YYYY-MM-DD'`); the `+Event` button leaves it empty. Single implementation, no duplicated form, `onSubmit` unchanged (`recurring`/`area`/`source:'app'` etc. now consistently available from both entry points).
 - `openDayModal` removed from exports / `window` in `js/calendar.js`.
-- **v1.16.0**: the old `refDate`/`calYear`/`calMonth`/`weekStartOf`/`addDays`/`addMonths` single-navigation state was removed along with CalendarJS — FullCalendar owns navigation now (see v1.16.0).
+- **v1.19.0 (supersedes this)**: local events were merged into Tasks � `openAddEventModal` is **deleted**; day-cell clicks now open the **Add Task** modal with the date pre-filled (see v1.19.0 section).
+- **v1.16.0**: the old `refDate`/`calYear`/`calMonth`/`weekStartOf`/`addDays`/`addMonths` single-navigation state was removed along with CalendarJS � FullCalendar owns navigation now (see v1.16.0).
 
-## v1.11.0 — water reminder + PWA + documented notification limits
+## v1.11.0 � water reminder + PWA + documented notification limits
 
 ### Water reminder (`js/water.js`)
 
-- New module `js/water.js` (imported after `nudge.js` in `main.js`). Settings live in `state.settings.drinkReminder = { enabled: boolean, interval: number(min) }` (default `{ enabled: false, interval: 90 }`, persisted via `saveProfile({ drinkReminder })` → merged back into `state.settings` by `loadAllData`). Field name is `drinkReminder` — **not** `waterReminder`.
-- `startWaterReminder()` / `stopWaterReminder()` — module-global `waterTimer` (`setInterval` at `interval * 60000`). `startWaterReminder()` is called from `launchApp()` (`js/auth.js`); `stopWaterReminder()` from the logout click handler.
-- `waterNotify()` — fires **in-app only**: `new Notification('💧 Boire de l\'eau', …)` when permission granted, otherwise a `toast(…, 'info', 6000)`; tries `Notification.requestPermission()` once if still `'default'`; `navigator.vibrate([200,100,200])`.
-- Settings UI: `openSettings()` (exported + `window`-bound) is wired to the new `#settings-btn` in the sidebar footer (`⚙️ Settings`, above Sign out; hover style `#settings-btn:hover` in style.css). Generic modal with a Désactivé/Activé select + number interval input (clamped ≥5 min).
+- New module `js/water.js` (imported after `nudge.js` in `main.js`). Settings live in `state.settings.drinkReminder = { enabled: boolean, interval: number(min) }` (default `{ enabled: false, interval: 90 }`, persisted via `saveProfile({ drinkReminder })` �  merged back into `state.settings` by `loadAllData`). Field name is `drinkReminder` � **not** `waterReminder`.
+- `startWaterReminder()` / `stopWaterReminder()` � module-global `waterTimer` (`setInterval` at `interval * 60000`). `startWaterReminder()` is called from `launchApp()` (`js/auth.js`); `stopWaterReminder()` from the logout click handler.
+- `waterNotify()` � fires **in-app only**: `new Notification('�x� Boire de l\'eau', ⬦)` when permission granted, otherwise a `toast(⬦, 'info', 6000)`; tries `Notification.requestPermission()` once if still `'default'`; `navigator.vibrate([200,100,200])`.
+- Settings UI: `openSettings()` (exported + `window`-bound) is wired to the new `#settings-btn` in the sidebar footer (`�a"️ Settings`, above Sign out; hover style `#settings-btn:hover` in style.css). Generic modal with a Désactivé/Activé select + number interval input (clamped �0�5 min).
 
-### Notification platform limits (IMPORTANT — documented, do not over-promise)
+### Notification platform limits (IMPORTANT � documented, do not over-promise)
 
-- **No push server (FCM/web push) exists.** The reminder runs on a page `setInterval`, so it fires **only while the app is open** in a tab/window — never when closed, on any platform.
+- **No push server (FCM/web push) exists.** The reminder runs on a page `setInterval`, so it fires **only while the app is open** in a tab/window � never when closed, on any platform.
 - **Android Chrome tab**: works while the tab is open (backgrounded tabs are throttled); installed PWA works while running.
-- **iOS Safari (non-installed)**: `Notification` API not available — never works in a tab.
+- **iOS Safari (non-installed)**: `Notification` API not available � never works in a tab.
 - **iOS installed PWA (16.4+)**: works, but only while the PWA is running. Requires the PWA to be added to the home screen (manifest + icons above) and notification permission granted inside the installed app.
 - Future closed-app delivery requires a push server + subscription (out of scope; the code comments in `js/water.js` and this section are the contract).
 
-## v1.12.0 — day-priority task, goal deadlines on calendar, edit task from calendar
+## v1.12.0 � day-priority task, goal deadlines on calendar, edit task from calendar
 
-### Ritual "priorité du jour" → real Task (`js/ritual.js`)
+### Ritual "priorité du jour" �  real Task (`js/ritual.js`)
 
-- `saveRitual()` now, on the **morning** ritual, creates a real `tasks` doc when `ritualAnswers.morningFocus` is non-empty — no longer just journal text. Shape: `{ id, title, dueDate: todayKey, done: false, timerRunning: false, isDayPriority: true, priority: 'high', goalId: null, categoryId: null, createdAt }`. `goalId`/`categoryId` are null (standalone task); `getTaskCategoryId` already falls back to null gracefully. **v1.14.0**: this logic moved into the shared `ensureDayPriorityTask(title, dateKey)` helper, also reused by the new afternoon check-in's "tomorrow priority" button.
+- `saveRitual()` now, on the **morning** ritual, creates a real `tasks` doc when `ritualAnswers.morningFocus` is non-empty � no longer just journal text. Shape: `{ id, title, dueDate: todayKey, done: false, timerRunning: false, isDayPriority: true, priority: 'high', goalId: null, categoryId: null, createdAt }`. `goalId`/`categoryId` are null (standalone task); `getTaskCategoryId` already falls back to null gracefully. **v1.14.0**: this logic moved into the shared `ensureDayPriorityTask(title, dateKey)` helper, also reused by the new afternoon check-in's "tomorrow priority" button.
 - **Dedupe**: if a `isDayPriority` task with `dueDate === today` already exists, its `title` is updated instead of creating a duplicate.
 - `morningFocus` is still written to the journal doc (backward compat for any reader).
 - **Display**:
   - Tasks Today/All list (`js/tasks.js` `renderTasks`): `isDayPriority` non-done tasks sort to the top; each shows the `⭐ Priorité du jour` badge (`.pri-day-badge`) in `.task-meta`.
-  - Dashboard check-in section (`js/dashboard.js` `renderDashCheckins`, renamed from `renderDashRitualSummary` in v1.15.0): when today's priority task exists it shows the task title + `⭐ Priorité du jour` badge + a ✓ task-check that completes it (`toggleTask`); falls back to the journal `morningFocus` text otherwise. Empty state unchanged (no ritual done + no priority task).
+  - Dashboard check-in section (`js/dashboard.js` `renderDashCheckins`, renamed from `renderDashRitualSummary` in v1.15.0): when today's priority task exists it shows the task title + `⭐ Priorité du jour` badge + a �S task-check that completes it (`toggleTask`); falls back to the journal `morningFocus` text otherwise. Empty state unchanged (no ritual done + no priority task).
 
 ### Goal target dates (`deadline`) in the calendar fusion (`js/calendar.js`)
 
-- The Edit Goal modal's "Target Date" field is persisted as **`g.deadline`** (not `targetDate`). Goals with a `deadline` appear on the calendar as `type:'goal'` events with a **🎯 icon**.
-- **v1.16.0**: `buildAllEvents()` (FullCalendar) merges goals by `deadline` after tasks, rendered with the distinct `.ev-goal` class (gold) — replacing the old `getEventsForDate`/`buildDayCell`/`.day-ev.goal` fusion.
+- The Edit Goal modal's "Target Date" field is persisted as **`g.deadline`** (not `targetDate`). Goals with a `deadline` appear on the calendar as `type:'goal'` events with a **�x}� icon**.
+- **v1.16.0**: `buildAllEvents()` (FullCalendar) merges goals by `deadline` after tasks, rendered with the distinct `.ev-goal` class (gold) � replacing the old `getEventsForDate`/`buildDayCell`/`.day-ev.goal` fusion.
 
 ### Edit a task from the calendar
 
-- Task events on the calendar are clickable and open the **existing Edit Task modal** (`openAddTaskModal('', null, task)`), thanks to `eventClick` routing by `extendedProps.type === 'task'` → `refId` (v1.16.0 `js/calendar.js` `onEventClick`).
+- Task events on the calendar are clickable and open the **existing Edit Task modal** (`openAddTaskModal('', null, task)`), thanks to `eventClick` routing by `extendedProps.type === 'task'` �  `refId` (v1.16.0 `js/calendar.js` `onEventClick`).
 - `openAddTaskModal`, `toggleTask`, and `deleteTask` (`js/tasks.js`) still call `renderCalendar()` when `currentView === 'calendar'`, so editing/completing/deleting a task from the calendar refreshes it immediately (refreshes the FC event source).
 
-## v1.13.0 — customizable bottom nav + on-the-fly wishlist lists
+## v1.13.0 � customizable bottom nav + on-the-fly wishlist lists
 
 ### Bottom nav (mobile) is now dynamic (`js/router.js` + `index.html`)
 
 - **The hardcoded bottom-nav buttons were removed from `index.html`** (this also killed the stale `data-view="hobbies"` residue from before the Growth rename). The `.bottom-nav-inner` container is now empty; `renderBottomNav()` builds the buttons at runtime.
-- **9 selectable entries**, matching the sidebar: `dashboard` (Home), `journal`, `calendar`, `documents`, `suivi` (→ `goTo('goals')`), and the four dynamic category roots `family`/`growth`/`career`/`finance` (resolved by root **name** via `resolveRootByName`, navigated with `goToCategory(rootId)`). Finance root's `finance-table` module redirects to the Finance view as before.
+- **9 selectable entries**, matching the sidebar: `dashboard` (Home), `journal`, `calendar`, `documents`, `suivi` (�  `goTo('goals')`), and the four dynamic category roots `family`/`growth`/`career`/`finance` (resolved by root **name** via `resolveRootByName`, navigated with `goToCategory(rootId)`). Finance root's `finance-table` module redirects to the Finance view as before.
 - **`BOTTOM_NAV_ENTRIES`** (label/icon/view-or-catName) + **`BOTTOM_NAV_DEFAULT`** live in `js/router.js`; `getBottomNavPrefs()` reads `state.settings.bottomNav` (ordered array of keys, falls back to `BOTTOM_NAV_DEFAULT`). Buttons use inline `onclick="goTo('...')"` / `goToCategory('...')` and `data-bn-key` (NOT `data-view`).
 - **`updateBottomNav()`** (called from `goTo` and `goToCategory`) syncs `.active` + the sliding `#bn-pill` position via `bnActiveKey()` (matches views + the active category root). `renderBottomNav()` is called in `launchApp()` (`js/auth.js`).
-- **Settings UI**: the `⚙️ Settings` modal (`js/water.js`) now has a `customBody` **"Barre du bas (mobile)"** editor: a row per entry with a checkbox (include), `↑`/`↓` reorder buttons (`bnToggle`/`bnMove`/`renderBnEditor`/`initBnEditor`, module state `bnOrder`/`bnOn`). Saving writes `state.settings.bottomNav` via `saveProfile({ bottomNav })` and re-renders the nav. At least one entry required.
+- **Settings UI**: the `�a"️ Settings` modal (`js/water.js`) now has a `customBody` **"Barre du bas (mobile)"** editor: a row per entry with a checkbox (include), `� `/`� ` reorder buttons (`bnToggle`/`bnMove`/`renderBnEditor`/`initBnEditor`, module state `bnOrder`/`bnOn`). Saving writes `state.settings.bottomNav` via `saveProfile({ bottomNav })` and re-renders the nav. At least one entry required.
 
 ### Wishlist: create a new list on the fly (`js/finance.js`)
 
 - The Wishlist page header now has **`+ New List`** next to `+ Add Item`. `openAddWishlistList()` opens a one-field modal; on save it appends the name to `f.wishlistLists` (`settings.finance.wishlistLists`) via `saveFinance(f)`, then `renderFinance()`. Duplicate names (case-insensitive) are rejected. The new list immediately appears as an option in the Add/Edit item modals.
 
-## v1.14.0 — restructured morning ritual (4 questions) + new afternoon check-in (3 questions)
+## v1.14.0 � restructured morning ritual (4 questions) + new afternoon check-in (3 questions)
 
-### Morning ritual — 4 ordered questions (`js/ritual.js` `MORNING_QS`)
+### Morning ritual � 4 ordered questions (`js/ritual.js` `MORNING_QS`)
 
 New order, replacing the old 3-question morning:
 
-1. `morningFocus` (text) — "What's your ONE priority today?" — still becomes a real `isDayPriority` task via the shared `ensureDayPriorityTask(title, dateKey)` helper (v1.12.0 behavior preserved).
-2. `morningObstacle` (text) — "What could go wrong today, and how will you handle it?" (contingency plan).
-3. `energy` — the existing 🔋 energy slider, now its own question (was previously bundled with the mood picker). **v1.15.0**: saved as `journal.{date}.energy` as a 3-level string `'low' | 'medium' | 'high'` (slider 1-3→low, 4-7→medium, 8-10→high, mapped by the shared `energyLevel(v)` helper in `js/helpers.js`), so the ritual writer and the dashboard Weekly Energy widget share one format.
-4. `mood` — **new 7-emoji single-select** stored on `journal.{date}.mood` (new field; old `morningMood` field still read as a fallback by `js/dashboard.js` `renderDashCheckins` and `js/journal.js` `renderJournal`). Exact emoji set: 😊 Content · 😰 Stressé · 😢 Triste · 😠 En colère · 😐 Neutre · 😴 Fatigué · 😟 Anxieux.
+1. `morningFocus` (text) � "What's your ONE priority today?" � still becomes a real `isDayPriority` task via the shared `ensureDayPriorityTask(title, dateKey)` helper (v1.12.0 behavior preserved).
+2. `morningObstacle` (text) � "What could go wrong today, and how will you handle it?" (contingency plan).
+3. `energy` � the existing �x9 energy slider, now its own question (was previously bundled with the mood picker). **v1.15.0**: saved as `journal.{date}.energy` as a 3-level string `'low' | 'medium' | 'high'` (slider 1-3� low, 4-7� medium, 8-10� high, mapped by the shared `energyLevel(v)` helper in `js/helpers.js`), so the ritual writer and the dashboard Weekly Energy widget share one format.
+4. `mood` � **new 7-emoji single-select** stored on `journal.{date}.mood` (new field; old `morningMood` field still read as a fallback by `js/dashboard.js` `renderDashCheckins` and `js/journal.js` `renderJournal`). Exact emoji set: �x�` Content · �xܰ Stressé · �xܢ Triste · �xܠ En colère · �xܐ Neutre · �xܴ Fatigué · �x�x Anxieux.
 
-### Afternoon check-in — new 3-question ritual (`AFTERNOON_QS`, badge `🌤 Afternoon Check-in`)
+### Afternoon check-in � new 3-question ritual (`AFTERNOON_QS`, badge `�xR� Afternoon Check-in`)
 
-- **Window**: `checkRitual()` now triggers it 12pm–6pm when `journal.afternoonDone` is not set (morning 5am–12pm and evening 6pm+ unchanged). Completed flag is `journal.afternoonDone`.
-- **Q1 `priorityDone`** (`type: 'check'`) — renders today's `isDayPriority` task with a ✓ `task-check` button that calls **`toggleTask(id)` directly** (reuse — no duplicate completion state). If no day-priority task exists → "Aucune priorité définie". `renderRitualCheck()` + `ritualToggleDayPriority(id)` handle it.
-- **Q2 `highlight`** (`type: 'text'`) — free-text saved to `journal.{date}.highlight`.
-- **Q3 `tomorrow`** (`type: 'tomorrow'`) — free-text saved to `journal.{date}.tomorrow`, plus a `#ritual-tomorrow-btn` ("⭐ Create as tomorrow's priority") that calls `createTomorrowPriority()` → `ensureDayPriorityTask(text, dk(tomorrow))`, creating/reusing an `isDayPriority` task dated tomorrow (dedupe by existing tomorrow day-priority task; empty text is a no-op).
+- **Window**: `checkRitual()` now triggers it 12pm�6pm when `journal.afternoonDone` is not set (morning 5am�12pm and evening 6pm+ unchanged). Completed flag is `journal.afternoonDone`.
+- **Q1 `priorityDone`** (`type: 'check'`) � renders today's `isDayPriority` task with a �S `task-check` button that calls **`toggleTask(id)` directly** (reuse � no duplicate completion state). If no day-priority task exists �  "Aucune priorité définie". `renderRitualCheck()` + `ritualToggleDayPriority(id)` handle it.
+- **Q2 `highlight`** (`type: 'text'`) � free-text saved to `journal.{date}.highlight`.
+- **Q3 `tomorrow`** (`type: 'tomorrow'`) � free-text saved to `journal.{date}.tomorrow`, plus a `#ritual-tomorrow-btn` ("⭐ Create as tomorrow's priority") that calls `createTomorrowPriority()` �  `ensureDayPriorityTask(text, dk(tomorrow))`, creating/reusing an `isDayPriority` task dated tomorrow (dedupe by existing tomorrow day-priority task; empty text is a no-op).
 
 ### Question-type plumbing
 
 `showRitualStep` now dispatches on 5 types: `text`, `mood` (mood row), `energy` (slider), `check` (task row), `tomorrow` (textarea + button). Progress bars are generated dynamically (`#ritual-progress` innerHTML rebuilt per step) instead of the old 3 hardcoded bars, so 4-question morning and 3-question afternoon both render correctly. `getRitualQs()` selects the question array by `ritualType`.
 
-## v1.15.0 — compact accordion dashboard + monthly habits + energy levels
+## v1.15.0 � compact accordion dashboard + monthly habits + energy levels
 
 ### Dashboard restructure (`js/dashboard.js` + `index.html` `#view-dashboard`)
 
-The dashboard is now a stack of **per-section collapsible accordions** (`.dash-accordion`), each with its own collapse state — no shared global toggle. Two independent state Sets, following the existing goals/sprint accordion pattern:
+The dashboard is now a stack of **per-section collapsible accordions** (`.dash-accordion`), each with its own collapse state � no shared global toggle. Two independent state Sets, following the existing goals/sprint accordion pattern:
 
-- `window._dashCollapsed` — section keys (`habits`, `checkins`, `energy`, `goals`, `weekly`, `captures`, `achievements`), toggled by `toggleDashSection(id)` (flips `#dash-body-{id}` `.collapsed` + `#dash-chev-{id}` `.expanded`).
-- `window._dashHabitGroups` — habit subgroup keys (`daily`, `weekly`, `monthly`), toggled by `toggleDashHabitGroup(group)`.
+- `window._dashCollapsed` � section keys (`habits`, `checkins`, `energy`, `goals`, `weekly`, `captures`, `achievements`), toggled by `toggleDashSection(id)` (flips `#dash-body-{id}` `.collapsed` + `#dash-chev-{id}` `.expanded`).
+- `window._dashHabitGroups` � habit subgroup keys (`daily`, `weekly`, `monthly`), toggled by `toggleDashHabitGroup(group)`.
 
 Sections (all `grid-column: 1 / -1`):
-1. **Habits** — header with total count; body holds 3 nested sub-accordions (`.dash-sub-accordion`) **Daily / Weekly / Monthly** (`dash-habits-daily/weekly/monthly`). Each habit row = compact `task-check-sm` today-toggle + name + sub-category tag + `🔥 N{mo,wk,d}` streak badge. Bucketing: `monthly`→Monthly, `weekly`/`3x_per_week`→Weekly, everything else (daily/once)→Daily (`dashHabitGroup(freq)`).
-2. **Morning / Afternoon** — `renderDashCheckins` (renamed from `renderDashRitualSummary`): today's mood/focus/priority line + a compact 7-day strip (`.dash-checkin-strip`, 2 tiny dots per day for `morningDone`/`afternoonDone`).
-3. **Energy** — `renderDashEnergy` + `setDashEnergy(level)`: 3 emoji buttons (🔋 low / 🔋🔋 medium / 🔋🔋🔋 high) that write `journal.{date}.energy` (low/medium/high) via `saveDoc('journal', ...)`, plus a 7-day energy strip.
-4. **Goals by Life Area** — `renderDashGoals`: goals grouped by `getGoalLifeArea(g)`, avg `computeGoalProgress(g).progress` per area, colored bars via `AREA_COLORS`.
-5. **Weekly Tasks** — `renderDashWeeklyChart`: the existing created-vs-completed 7-day chart, extracted to its own accordion.
-6. **Recent Captures** — unchanged data (`renderDashCaptures`), now an accordion.
-7. **Achievements** — `renderDashAchievements` trimmed to stats + tasks/habits by category + wins (weekly chart and goals moved to their own accordions above).
+1. **Habits** � header with total count; body holds 3 nested sub-accordions (`.dash-sub-accordion`) **Daily / Weekly / Monthly** (`dash-habits-daily/weekly/monthly`). Each habit row = compact `task-check-sm` today-toggle + name + sub-category tag + `�x� N{mo,wk,d}` streak badge. Bucketing: `monthly`� Monthly, `weekly`/`3x_per_week`� Weekly, everything else (daily/once)� Daily (`dashHabitGroup(freq)`).
+2. **Morning / Afternoon** � `renderDashCheckins` (renamed from `renderDashRitualSummary`): today's mood/focus/priority line + a compact 7-day strip (`.dash-checkin-strip`, 2 tiny dots per day for `morningDone`/`afternoonDone`).
+3. **Energy** � `renderDashEnergy` + `setDashEnergy(level)`: 3 emoji buttons (�x9 low / �x9�x9 medium / �x9�x9�x9 high) that write `journal.{date}.energy` (low/medium/high) via `saveDoc('journal', ...)`, plus a 7-day energy strip.
+4. **Goals by Life Area** � `renderDashGoals`: goals grouped by `getGoalLifeArea(g)`, avg `computeGoalProgress(g).progress` per area, colored bars via `AREA_COLORS`.
+5. **Weekly Tasks** � `renderDashWeeklyChart`: the existing created-vs-completed 7-day chart, extracted to its own accordion.
+6. **Recent Captures** � unchanged data (`renderDashCaptures`), now an accordion.
+7. **Achievements** � `renderDashAchievements` trimmed to stats + tasks/habits by category + wins (weekly chart and goals moved to their own accordions above).
 
 ### Removed widgets (rendering + calls, not just CSS)
 
@@ -325,44 +327,50 @@ Sections (all `grid-column: 1 / -1`):
 
 ### Habit frequency `monthly` (v1.15.0)
 
-See `progress-model-spec.md` §2 for the full rules. Summary: unit becomes calendar months (`monthKey` = `YYYY-MM`, helpers `monthKey`/`monthsBetweenKeys` added to `js/habits.js`); "successful month" = ≥1 check-in in the calendar month; `calcStreak` counts consecutive successful months; `computeHabitProgress` deadline-mode = `successfulMonths / monthsBetweenKeys(createdAt, deadline)`, rolling-mode = distinct recent months / `monthsBetweenKeys(30 days ago, today)`. `freqLabel`/form options/streak-badge unit extended accordingly.
+See `progress-model-spec.md` §2 for the full rules. Summary: unit becomes calendar months (`monthKey` = `YYYY-MM`, helpers `monthKey`/`monthsBetweenKeys` added to `js/habits.js`); "successful month" = �0�1 check-in in the calendar month; `calcStreak` counts consecutive successful months; `computeHabitProgress` deadline-mode = `successfulMonths / monthsBetweenKeys(createdAt, deadline)`, rolling-mode = distinct recent months / `monthsBetweenKeys(30 days ago, today)`. `freqLabel`/form options/streak-badge unit extended accordingly.
 
 ### Energy levels (`energyLevel`/`energyLabel`)
 
-- New shared helpers in `js/helpers.js`: `energyLevel(v)` normalizes a value to `'low'|'medium'|'high'` (numeric 1-10 → low 1-3 / medium 4-7 / high 8-10; passes through already-level strings), `energyLabel(v)` returns a display string.
+- New shared helpers in `js/helpers.js`: `energyLevel(v)` normalizes a value to `'low'|'medium'|'high'` (numeric 1-10 �  low 1-3 / medium 4-7 / high 8-10; passes through already-level strings), `energyLabel(v)` returns a display string.
 - `js/ritual.js` `saveRitual` maps the morning slider value through `energyLevel` before persisting.
 - Readers: `js/journal.js` `renderJournal` and `js/dashboard.js` now display energy via `energyLabel`.
 
-## v1.16.0 — FullCalendar v6 (CalendarJS + homemade grid removed)
+## v1.16.0 � FullCalendar v6 (CalendarJS + homemade grid removed)
 
-### CDN (no bundler) — `index.html`
+### CDN (no bundler) � `index.html`
 
 The calendar is now **FullCalendar v6.1.21** global builds (styles are injected by the JS; no CSS file needed). Scripts load in `<body>` before `js/main.js`:
 
-- `@fullcalendar/core`, `@fullcalendar/daygrid`, `@fullcalendar/timegrid`, `@fullcalendar/list`, `@fullcalendar/interaction` — all `@6.1.21/index.global.min.js` — plus `@fullcalendar/core@6.1.21/locales/fr.global.min.js`.
-- **Version pinning note**: FullCalendar's latest npm tag is **v7.0.2**, but v7 dropped the per-plugin `index.global.min.js` CDN builds (core@7 ships ESM-only files), so the individual-plugin script-tag pattern requires **6.x** — 6.1.21 is the newest 6.x. Do not "upgrade" the CDN tags to @7; there is no v7 global-build equivalent. Premium `timeline`/`resource-timeline` views are a separate paid SDK (`fullcalendar-scheduler`) and are **not** used.
+- `@fullcalendar/core`, `@fullcalendar/daygrid`, `@fullcalendar/timegrid`, `@fullcalendar/list`, `@fullcalendar/interaction` � all `@6.1.21/index.global.min.js` � plus `@fullcalendar/core@6.1.21/locales/fr.global.min.js`.
+- **Version pinning note**: FullCalendar's latest npm tag is **v7.0.2**, but v7 dropped the per-plugin `index.global.min.js` CDN builds (core@7 ships ESM-only files), so the individual-plugin script-tag pattern requires **6.x** � 6.1.21 is the newest 6.x. Do not "upgrade" the CDN tags to @7; there is no v7 global-build equivalent. Premium `timeline`/`resource-timeline` views are a separate paid SDK (`fullcalendar-scheduler`) and are **not** used.
 - Removed: `@calendarjs/ce` (script + style), `lemonadejs`, and the CalendarJS `<link>`.
 
 ### Container + toolbar (`index.html` `#view-calendar`)
 
 - The custom nav buttons/toggles are gone (`#cal-prev/next/today/week-next/month-next`, `#cal-view-*`, `#schedule-type-toggle`, `#cal-title`). Toolbar is now just `#cal-date-picker` (goes to a date via `gotoDate`) + `#add-event-btn` (+ Event), and the connect bar (`#btn-connect-google-cal`, `#btn-connect-outlook-cal`).
 - The FullCalendar instance renders into a single **`<div id="calendar">`** (was `#calendarjs-schedule`/`#calendarjs-timeline`).
-- **View toggle + nav**: FullCalendar's `headerToolbar` renders `left: 'prev,next today'`, `center: 'title'`, `right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'` — all four views with one toggle, navigation handled entirely by the FC API (`today()/prev()/next()/gotoDate()`). `locale: 'fr'`, `buttonText` maps to Mois/Semaine/Jour/Liste, `dayMaxEvents: 3`, `nowIndicator: true`, `height: 'auto'`.
+- **View toggle + nav**: FullCalendar's `headerToolbar` renders `left: 'prev,next today'`, `center: 'title'`, `right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'` � all four views with one toggle, navigation handled entirely by the FC API (`today()/prev()/next()/gotoDate()`). `locale: 'fr'`, `buttonText` maps to Mois/Semaine/Jour/Liste, `dayMaxEvents: 3`, `nowIndicator: true`. **v1.20.0**: `height: '100%'` (was `'auto'` � see v1.20.0 for why).
 
 ### Event source mapping (`js/calendar.js`)
 
-- `buildAllEvents()` → `buildFcEvent()` merges every source into FC `EventInput`s distinguished by `classNames` (`ev-task`, `ev-goal`, `ev-event`, `ev-google`, `ev-outlook`) + `extendedProps.type`/`refId`:
-  1. **Tasks** with `dueDate` (all-day unless a start time exists).
-  2. **Goals** with `deadline` (🎯 prefix).
-  3. **Local events** (`state.events`) with `date` + optional `startTime`/`endTime`.
-  4. **Google sync** (`state.googleCalendarEvents`) and **Outlook sync** (`state.outlookCalendarEvents`).
-- **Default 30-min duration**: when an event has a `startTime` but no `endTime`, `end = start + 30min` is computed **at event-build time only** (`buildFcEvent`/`addMinutes`). It is never persisted — Firestore keeps the stored shape (absent `endTime` stays absent), per the stored-state rule.
+- `buildAllEvents()` �  `buildFcEvent()` merges every source into FC `EventInput`s distinguished by `classNames` (`ev-task`, `ev-goal`, `ev-google`, `ev-outlook`) + `extendedProps.type`/`refId`:
+  1. **Tasks** with `dueDate` (all-day unless a start time exists; recurring �  `buildTaskRecurringEvent`, see v1.19.0 section).
+  2. **Goals** with `deadline` (�x}� prefix).
+  3. **Google sync** (`state.googleCalendarEvents`) and **Outlook sync** (`state.outlookCalendarEvents`).
+  - *v1.19.0: local `state.events` were removed � Tasks are the only manually-creatable calendar object.*
+- **Default 30-min duration**: when an event has a `startTime` but no `endTime`, `end = start + 30min` is computed **at event-build time only** (`buildFcEvent`/`addMinutes`). It is never persisted � Firestore keeps the stored shape (absent `endTime` stays absent), per the stored-state rule.
 - `refreshCalendarEvents()` swaps the FC event source (remove-all + `addEventSource({ id: 'brain', events: buildAllEvents() })`); called by `renderCalendar()` which is re-invoked from `router.js` `goTo('calendar')` and `js/tasks.js` mutations (unchanged call sites).
 
 ### Click routing
 
-- `dateClick` → `openAddEventModal(info.dateStr)` (pre-fills date). `+Event` button → `openAddEventModal()` (no prefill). Same unified modal as v1.10.0.
-- `eventClick` → `onEventClick` routes by `extendedProps.type`: **task** → Edit Task (`openAddTaskModal('', null, task)`), **goal** → Edit Goal (`openAddGoalModal(goal)`), **event** → edit/delete local event (`openAppEventModal(item)`, reuses the same fields as add + 🗑 Delete), **google/outlook** → read-only detail (`openExternalEventModal(ev)`, no form).
+- **v1.20.0 (supersedes v1.19.0 date-click)**: `dateClick` �  `openCalQuickCreate(info)` (quick-create popover); `select` (drag) �  `onCalSelect(info)` �  `openCalQuickCreate(...)` with start/end from drag; `+ Task` button �  `openCalQuickCreate` anchored to button. Popover: title input (autofocus), Entrée = `submitCalQuickCreate()` (creates task, `goalId: null`), �0chap = close, "Plus d'options" = `openCalQuickCreateFullModal()` (opens full Add Task modal pre-filled). `eventClick` routing unchanged. A plain click in a timegrid slot fires `dateClick` AND a single-slot `select` � both paths converge on the same popover (clicked time +30 min).
+- **v1.20.1 (A2 correction)**: `taskOccurrenceContent` returns `true` (not `undefined`) for events it doesn't customize � FC v6 renders an **empty** event when `eventContent` returns `null` OR `undefined`; only `true` falls back to default content (v6.1.0+, `ContentInjector.ts`). This restores task/goal/external titles in list view AND all other views.
+- **v1.21.0 (quick recurrence chips)**: the popover (`.qc-recur` under the title input) and the Add/Edit Task modal (`.modal-recur` customBody, top) both carry one-click chips **Une fois / Tous les jours / Chaque semaine / Chaque mois**. A chip click in the **popover creates the task immediately** (`submitCalQuickCreate(chip)`) with sensible defaults: weekly �  `daysOfWeek = [weekday of the clicked slot]` (deduced from `dueDate`, no separate question), monthly �  same day of month (implicit via `dueDate` + rrule), **`endDate` always null** (no-end by default; add later via "Plus d'options"). The last chip is remembered in module var `_qcChip` (session-wide, default `'once'`, survives popover close) and drives the "Plus d'options" pre-fill: `openCalQuickCreateFullModal()` passes `isRecurring/frequency/daysOfWeek/endDate` overrides so the full modal opens with that recurrence, editable (add a 2nd weekday or an end date) � no reset. In the **modal**, the pre-selected chip reflects the current rule (`item.recurrence.frequency` on edit, overrides on create); `taskModalPickRecurrence(freq)` swaps the rule in one click by setting `mf-isRecurring/mf-frequency/mf-daysOfWeek` (weekly fills days from `mf-dueDate` when empty) and re-running `toggleTaskRecurrenceFields()`. Popover Enter = `submitCalQuickCreate()` (uses remembered chip).
+- **v1.22.0 (shared recurrence-chips component � dedupes v1.21.0)**: the chips are extracted into **`js/recur.js`**, ONE source of truth consumed by BOTH surfaces: `recurChipsHtml(selected)` renders the chip row (labels/order/data-chip), `buildQuickRecurrence(chip, dueDate)` builds the rule (weekly �  `daysOfWeek=[weekday of reference date]`, monthly �  same day of month, `endDate:null`, 'once' �  `null`), `setRecurChipsHighlight(chip)` syncs the `.selected` state, and the single inline entry point `onRecurChipClick(chip)` dispatches by context � popover `.active` �  `submitCalQuickCreate(chip)` (create immediately), else modal �  `taskModalPickRecurrence(chip)`. The popover (`#cal-qc-recur` is now an EMPTY container populated at boot) and the Add/Edit Task modal (`customBody` = `recurChipsHtml(currentFreq)` + a discreet `�9� Options avancées` link) therefore stay synchronized **by construction** � no duplicated markup/logic. `taskModalPickRecurrence(freq)` now **replaces** the rule in one click via the shared builder (weekly �  days = weekday of the task's due date, never merged), and the fine-grained fields (`isRecurring`/`frequency`/`daysOfWeek`/`endDate`) are collapsed by default behind `toggleRecurAdvanced()` (module flag `_recurAdvancedOpen`, reset per open; `toggleTaskRecurrenceFields()` is now a thin wrapper over `syncRecurFieldsVisibility()` which additionally gates on the collapse state). Popover Enter still = `submitCalQuickCreate()` (remembered chip `_qcChip`).
+- **v1.23.0 (weekday toggle buttons � daysOfWeek no longer typed)**: the modal's `daysOfWeek` field is no longer a numeric-array text input (old label "Jours (0=dimanche⬦6=samedi, ex. 1,3)") � it's a new generic field type `weekdays` (modal.js `buildField`): 7 toggle buttons **L M M J V S D** (French visual order), each `data-wd` = the JS `getDay()` index (**0 = Dimanche, the convention already used by FullCalendar + `taskOccursOnDate` � unchanged**), multi-select, click toggles `.selected` (active = `--accent` bg + white text, inactive = `--surface2`), **no manual entry**. The buttons render via the SHARED `recurWeekdaysHtml`/`toggleRecurWeekday`/`getRecurWeekdays`/`setRecurWeekdays` in js/recur.js and write to a hidden `mf-daysOfWeek` input (`data-for` on the row) so the generic submit reader, the weekly validation (`�0�1 day`) and the goal-picker stash work **unchanged**; storage format stays `daysOfWeek: number[]` in [0-6]. Pre-checked from the current rule on edit (`item.recurrence.daysOfWeek`), reset/reflected by `taskModalPickRecurrence` (`setRecurWeekdays` after the shared builder sets the hidden input). The quick-create popover is NOT affected � it keeps its one-click weekly = slot-weekday rule (user-confirmed scope: toggles live in the modal's "Options avancées" only). `syncRecurFieldsVisibility` still gates the row via `mf-wrap-daysOfWeek` (advanced open + weekly).
+- **v1.24.0 (Récurrent checkbox + "Tous les 3 mois")**: three changes to the SHARED block in js/recur.js. **(1) "Une fois" is no longer a chip** � `RECUR_CHIPS` = `[Tous les jours / Chaque semaine / Chaque mois / Tous les 3 mois]`; the `recurBlockHtml({checked, selected, disabled})` renderer = a "Récurrent" checkbox + the chip row on the SAME line (`.recur-block`). **Checked** �  chips active (clickable, `.qc-recur-chip:disabled` removed); **unchecked** �  chips inert (`disabled` attr + `opacity:.45`), task is a one-off. **(2) Auto-open "Options avancées"**: the recurrence details (`mf-wrap-endDate`, `mf-wrap-daysOfWeek` for weekly) expand automatically whenever a recurrent task is opened for edit/override (`_recurAdvancedOpen = showRec` on open) OR a chip is clicked (`taskModalPickRecurrence` sets `_recurAdvancedOpen = true`); they collapse for one-off tasks. New checkbox entry point `onRecurCheck(el)` dispatches like `onRecurChipClick`: popover `.active` �  **`qcRecurCheck(el)`** (calendar.js: sets `_qcRecEnabled`; uncheck resets `_qcChip='daily'` + clears highlight �  **no phantom rule** on recheck), else modal �  **`modalRecurCheck(el)`** (tasks.js: checked �  `mf-isRecurring='true'`, fresh default `'daily'` + highlight, `_recurAdvancedOpen=true`; unchecked �  **clears** `mf-frequency/mf-daysOfWeek/mf-endDate` + weekday toggles + highlight, collapses advanced). `syncRecurFieldsVisibility` reworked: `mf-wrap-isRecurring` + `mf-wrap-frequency` stay **permanently hidden** (hidden value carriers only); `updateRecurAdvancedLabel()` keeps the `�9� Options avancées` link label/visibility in sync (link hidden while one-off). Popover state: `_qcChip` default `'daily'`, new `_qcRecEnabled` (default false); `submitCalQuickCreate(chip)` � chip click enables recurrence, Enter/button uses `_qcRecEnabled ? buildQuickRecurrence(_qcChip, dueDate) : null`; `openCalQuickCreateFullModal()` gates its `rec` the same way. **(3) "Tous les 3 mois" (`frequency:'3_months'`)**: `buildQuickRecurrence('3_months', ⬦)` �  `{frequency:'3_months', daysOfWeek:null, endDate:null}`; `buildTaskRecurringEvent` renders it as the **rrule plugin object with `interval: 3`** (`{freq:'monthly', interval:3, dtstart}`); `taskOccursOnDate` �  same day of month AND `(monthDiff �0� 0 && monthDiff % 3 === 0)`; progress model (progress-model-spec.md) �  `triMonthKey(date)` (`YYYY-Qn` calendar-quarter bucket) + `triMonthsBetweenKeys` (`max(1, ceil(monthsBetweenKeys/3))`), `computeHabitProgress` (deadline + rolling) and `calcStreak` get `3_months` branches (step back 3 months) � **1 check-in per 3-month window**, identical logic to `monthly` with a 3� wider window.
+- *v1.19.0 (historical)*: `dateClick` �  `openAddTaskModal('', null, null, { dueDate: info.dateStr })`; `+ Task` button �  `openAddTaskModal()`. Routing by `extendedProps.type`: **task** �  Edit Task (`openAddTaskModal`), **goal** �  Edit Goal (`openAddGoalModal`), **google/outlook** �  read-only detail (`openExternalEventModal(ev)`).
+- *Pre-v1.19.0 (historical)*: `dateClick`/`+Event` �  `openAddEventModal(prefillDate)`; `eventClick` `type:'event'` �  `openAppEventModal(item)`.
 
 ### External sync fetch range
 
@@ -370,19 +378,19 @@ The calendar is now **FullCalendar v6.1.21** global builds (styles are injected 
 
 ## CSS additions (style.css)
 
-Key classes: `.goal-accordion` (card container), `.goal-accordion-header` (clickable row), `.goal-accordion-chevron` (▶ toggle), `.goal-accordion-summary` (title+progress), `.goal-accordion-title-row` (title+tags), `.goal-accordion-body` (expandable content), `.goal-accordion-body.collapsed` (hidden). Sprint root accordions: `.sprint-root-accordion`, `.sprint-root-header`, `.sprint-root-chevron`, `.sprint-root-title`, `.sprint-root-count`, `.sprint-root-body` (`.collapsed` hidden, last inner goal has no bottom margin).
+Key classes: `.goal-accordion` (card container), `.goal-accordion-header` (clickable row), `.goal-accordion-chevron` (�� toggle), `.goal-accordion-summary` (title+progress), `.goal-accordion-title-row` (title+tags), `.goal-accordion-body` (expandable content), `.goal-accordion-body.collapsed` (hidden). Sprint root accordions: `.sprint-root-accordion`, `.sprint-root-header`, `.sprint-root-chevron`, `.sprint-root-title`, `.sprint-root-count`, `.sprint-root-body` (`.collapsed` hidden, last inner goal has no bottom margin).
 
-**v1.12.0**: `.pri-day-badge` (⭐ Priorité du jour pill — accent-purple gradient, used in the Tasks list + Dashboard Morning Check-in). **v1.14.0**: `.ritual-time-badge.afternoon` (amber/orange variant), `.ritual-check-row` + `.ritual-check-title` (afternoon Q1 task row), `.btn-ritual-tomorrow` (outlined accent button). **v1.15.0**: dashboard accordion stack — `.dash-accordion`/`-header`/`-chevron`/`-title`/`-count`/`-body` (+`.collapsed`), `.dash-sub-accordion`/`-header`/`-chevron`/`-title`/`-count`/`-body` (habit subgroups), `.dash-habit-row`/`-name`/`-tag`/`-streak`, `.dash-checkin-strip`/`-day`/`-dot` (+`.done`), `.dash-energy-btn` (+`.selected`)/`-strip`/`-day`, `.dash-goal-area`/`-head`/`-bar`/`-fill`. Removed: `.time-ring-card`, `.time-ring-wrap`, `.habit-rings-card/row/item/name`, `.family-card`. **v1.16.0**: FullCalendar v6 theme overrides scoped to `#view-calendar .fc` — `--fc-border-color`/`--fc-page-bg-color`/`--fc-neutral-bg-color`/`--fc-list-event-hover-bg-color`/`--fc-today-bg-color` mapped to design tokens, `.fc-button` reskinned (`.fc-button-active` → `--accent`), day numbers/col-header via `--text(-soft)`, event chip `.fc-event` styled with readable text, per-type event backgrounds: `.fc-event.ev-task`/`.ev-event` (accent purple), `.ev-goal` (gold `--growth`), `.ev-google` (red `--family`), `.ev-outlook` (blue `--finance`) — each a colored left border + translucent tint, not close purples. Removed: `.cal-nav-btn`, `.cal-today-btn`, `.cal-view-toggle`, `.cal-view-btn`, `.cal-title`, all `.cal-day`/`.day-num`/`.day-ev`/`.cal-days` homemade grid classes, and the CalendarJS `.lm-calendar*`/`#calendarjs-root` override block.
+**v1.12.0**: `.pri-day-badge` (⭐ Priorité du jour pill � accent-purple gradient, used in the Tasks list + Dashboard Morning Check-in). **v1.14.0**: `.ritual-time-badge.afternoon` (amber/orange variant), `.ritual-check-row` + `.ritual-check-title` (afternoon Q1 task row), `.btn-ritual-tomorrow` (outlined accent button). **v1.15.0**: dashboard accordion stack � `.dash-accordion`/`-header`/`-chevron`/`-title`/`-count`/`-body` (+`.collapsed`), `.dash-sub-accordion`/`-header`/`-chevron`/`-title`/`-count`/`-body` (habit subgroups), `.dash-habit-row`/`-name`/`-tag`/`-streak`, `.dash-checkin-strip`/`-day`/`-dot` (+`.done`), `.dash-energy-btn` (+`.selected`)/`-strip`/`-day`, `.dash-goal-area`/`-head`/`-bar`/`-fill`. Removed: `.time-ring-card`, `.time-ring-wrap`, `.habit-rings-card/row/item/name`, `.family-card`. **v1.16.0**: FullCalendar v6 theme overrides scoped to `#view-calendar .fc` � `--fc-border-color`/`--fc-page-bg-color`/`--fc-neutral-bg-color`/`--fc-list-event-hover-bg-color`/`--fc-today-bg-color` mapped to design tokens, `.fc-button` reskinned (`.fc-button-active` �  `--accent`), day numbers/col-header via `--text(-soft)`, event chip `.fc-event` styled with readable text, per-type event backgrounds: `.fc-event.ev-task`/`.ev-event` (accent purple), `.ev-goal` (gold `--growth`), `.ev-google` (red `--family`), `.ev-outlook` (blue `--finance`) � each a colored left border + translucent tint, not close purples. Removed: `.cal-nav-btn`, `.cal-today-btn`, `.cal-view-toggle`, `.cal-view-btn`, `.cal-title`, all `.cal-day`/`.day-num`/`.day-ev`/`.cal-days` homemade grid classes, and the CalendarJS `.lm-calendar*`/`#calendarjs-root` override block. **v1.20.0**: `#view-calendar.view.active` overridden to `display:flex; flex-direction:column; flex:1; min-height:0` (height fix � replaces `.view.active { display:block }`); `#view-calendar #calendar` �  `flex:1; min-height:0; overflow:hidden`; `#cal-quick-create` popover (fixed, `z-index:3000`, `@keyframes popoverIn`, `.qc-header`/`.qc-meta`/`.qc-actions`/`.qc-submit`/`.qc-more-link`/`.qc-hint`); `.ev-hover-check` (absolute, opacity-transition hover checkbox, `.done` variant). **v1.21.0**: `.qc-recur` (flex-wrap chip row, `margin-top:10px` in popover), `.modal-recur` (`margin-bottom:18px` � modal customBody variant), `.qc-recur-chip` (999px pill, `--surface3` bg, `.selected` = `--accent` bg + white text). **v1.22.0**: `.modal-recur` renamed �  `.modal-recur-wrap` (same 18px margin, wraps the shared chip row + the toggle in the task modal), added `.recur-advanced-toggle` (11.5px `--accent-light` link-style button, hover �  underline; `.open` toggles label to "�� Masquer les options avancées"). **v1.23.0**: `.recur-weekdays` (flex-wrap row, `gap:6px`, `margin-top:8px`), `.recur-weekday` (7 square-ish toggle buttons � `min-width:34px`, `--surface2` bg when **inactive**, `--accent` bg + white text when `.selected`, hover = `--accent` border) in the modal's "Options avanc" + "es". **v1.24.0**: `.recur-block` (flex row, `align-items:center`, `gap:10px`, wrap � "R" + "écurrent" checkbox + chip row on ONE line, `.recur-block .qc-recur { margin-top:0; flex:1 }`), `.recur-check-label` (inline-flex checkbox + label, `accent-color: var(--accent)`, 14px native checkbox), `.qc-recur-chip:disabled` (`opacity:.45`, `pointer-events:none` � inert chips while the checkbox is unchecked).
 
-## Sprint tracker — live from goals, never stored
+## Sprint tracker � live from goals, never stored
 
 The Sprint-level overall progress bar is **always computed live** as the average of `displayPct` (auto+manual) of every goal with `isSprintObjective === true` and `sprintQuarter === current quarter`. It never reads a stored field. When there are 0 sprint objectives, the bar shows "No objectives yet".
 
-### Sprint objectives — grouped by root-category accordion (v1.4.0)
+### Sprint objectives � grouped by root-category accordion (v1.4.0)
 
-`renderSprint` groups sprint goals by **root category** (Family / Growth / Career / Finance). Each root is itself a collapsible accordion (`.sprint-root-accordion` + `.sprint-root-header` + `.sprint-root-body`, chevron toggles via `toggleSprintRootExpand(rootKey)`, state in `window._collapsedSprintRoots`, **expanded by default**). Uncategorized goals land in a "🗂 Uncategorized" root.
+`renderSprint` groups sprint goals by **root category** (Family / Growth / Career / Finance). Each root is itself a collapsible accordion (`.sprint-root-accordion` + `.sprint-root-header` + `.sprint-root-body`, chevron toggles via `toggleSprintRootExpand(rootKey)`, state in `window._collapsedSprintRoots`, **expanded by default**). Uncategorized goals land in a "�x Uncategorized" root.
 
-Each objective inside a root is rendered with the **existing goal accordion** `buildGoalAccordionHtml(g)` — no duplicated components: click title/chevron expands linked Tasks/Habits inline, ✎ pencil opens the metadata modal, manual stepper shows for manual goals. The old flat `.sprint-obj` markup and its helpers (`toggleSprintDetail`, `resetSprintGoal`, `removeSprintObjective`) were removed — removing a goal from the sprint is now done via the pencil modal's "Sprint Objective?" field.
+Each objective inside a root is rendered with the **existing goal accordion** `buildGoalAccordionHtml(g)` � no duplicated components: click title/chevron expands linked Tasks/Habits inline, �S} pencil opens the metadata modal, manual stepper shows for manual goals. The old flat `.sprint-obj` markup and its helpers (`toggleSprintDetail`, `resetSprintGoal`, `removeSprintObjective`) were removed � removing a goal from the sprint is now done via the pencil modal's "Sprint Objective?" field.
 
 Mutation functions that trigger `renderSprint()` for immediate reactivity:
 - `toggleTask`, `deleteTask`, `openAddTaskModal` (submit)
@@ -390,41 +398,105 @@ Mutation functions that trigger `renderSprint()` for immediate reactivity:
 - `adjustGoalProgress`, `toggleMilestone`, `deleteGoal`
 - `add-sprint-obj-btn` (submit)
 
-**Bug fix (v1.6.0)**: on the Sprint view, goal accordions are rendered into `#sprint-objectives-list` by `renderSprint()`, but `rerenderGoalsList()` only dispatched to `renderCategoryContent()`/`renderGoals()` (the hidden Suivi panel). So `toggleGoalExpand` (and the accordion's inline task/habit mutation handlers) toggled the state Set without re-rendering the visible sprint list — a goal only *appeared* to open when a different action happened to re-render the sprint afterwards ("sometimes opens, sometimes doesn't"). `rerenderGoalsList()` now dispatches to `renderSprint()` on the Sprint view. All accordion state is id-keyed Sets (`expandedCategories`, `window._expandedGoals`, `window._collapsedSprintRoots`) — no shared single-variable state, so roots and nested goals expand independently.
+**Bug fix (v1.6.0)**: on the Sprint view, goal accordions are rendered into `#sprint-objectives-list` by `renderSprint()`, but `rerenderGoalsList()` only dispatched to `renderCategoryContent()`/`renderGoals()` (the hidden Suivi panel). So `toggleGoalExpand` (and the accordion's inline task/habit mutation handlers) toggled the state Set without re-rendering the visible sprint list � a goal only *appeared* to open when a different action happened to re-render the sprint afterwards ("sometimes opens, sometimes doesn't"). `rerenderGoalsList()` now dispatches to `renderSprint()` on the Sprint view. All accordion state is id-keyed Sets (`expandedCategories`, `window._expandedGoals`, `window._collapsedSprintRoots`) � no shared single-variable state, so roots and nested goals expand independently.
 
 ## Auto-activate category tabs on content creation (v1.4.0)
 
 Bug fix: creating a Goal targeting a category whose page has no activated "Goals" tab (tabs are opt-in) made the goal invisible everywhere. `ensureCategoryTabForType(catId, type, defaultLabel)` (near `openAddTabModal`, ~L4190) now auto-adds the missing tab at save time:
 
 - Idempotent: no-op if the category already has a tab of that `type`; skips non-`generic` moduleTypes (meals / finance-table / dateIdeas have no tab system).
-- Called from every content-creation path after the item is saved: `openAddGoalModal` + `add-sprint-obj-btn` → `'goals'` ('🎯 Goals'), `openAddTaskModal` → `'tasks'` ('☑️ Tasks') via the task's goal's `categoryId`, `openAddHabitModal` → `'habits'` ('🔥 Habits') likewise.
+- Called from every content-creation path after the item is saved: `openAddGoalModal` + `add-sprint-obj-btn` �  `'goals'` ('�x}� Goals'), `openAddTaskModal` �  `'tasks'` ('��️ Tasks') via the task's goal's `categoryId`, `openAddHabitModal` �  `'habits'` ('�x� Habits') likewise.
 - If this was the category's first tab, `window._activeCategoryTab` is set to it so the new content shows immediately; otherwise `renderCategoryContent` auto-selects a valid tab.
 
 ## Rename category tabs (v1.5.0)
 
-Every category tab (tasks / goals / habits / list — manual or auto-created) can be renamed inline. The tab bar was extracted into `renderCategoryTabBar(cat)` (returns the bar HTML, `id="cat-tab-bar"`); each tab now has a small ✎ button next to its label.
+Every category tab (tasks / goals / habits / list � manual or auto-created) can be renamed inline. The tab bar was extracted into `renderCategoryTabBar(cat)` (returns the bar HTML, `id="cat-tab-bar"`); each tab now has a small �S} button next to its label.
 
-- `startTabRename(catId, tabId)` — sets `window._renamingTabId` and re-renders just the bar, replacing the tab with a single text input pre-filled with the current label (focused + text selected).
+- `startTabRename(catId, tabId)` � sets `window._renamingTabId` and re-renders just the bar, replacing the tab with a single text input pre-filled with the current label (focused + text selected).
 - Save on Enter / blur via `finishTabRename(catId, tabId, value)`; cancel on Escape via `cancelTabRename(catId, tabId)` (guarded by the `_tabRenameArmed` flag so the blur triggered by the re-render doesn't fire the save).
-- Save only mutates `categories.tabs[].label` (via `saveDoc('categories', id, { tabs })`) — `type` and content underneath are untouched. Empty value = no change.
-- Purely a display-label change; works identically for tabs created by `ensureCategoryTabForType` (e.g. the auto-added "🎯 Goals" tab).
+- Save only mutates `categories.tabs[].label` (via `saveDoc('categories', id, { tabs })`) � `type` and content underneath are untouched. Empty value = no change.
+- Purely a display-label change; works identically for tabs created by `ensureCategoryTabForType` (e.g. the auto-added "�x}� Goals" tab).
 
-## Module → render-function → line-anchor map (app.js)
+## v1.17.0 � currency-free rewards + sprint priority + scoped dashboard
+
+### Rewards (Part A) � `js/rewards.js`
+
+A **currency-free celebration system**: there is NO coins/XP/level code anywhere. A reward is just `{ id, name, icon (emoji), description, archived, createdAt }`. It is attached **optionally** to a Task or a Goal via `attachedRewardId` (select field in the Add/Edit Task and Add/Edit Goal modals, with a "�~" Create new reward" inline-creation option that stashes the current modal fields, opens the reward modal, then reopens the parent modal pre-filled � `taskRewardSelectChange()` / `goalRewardSelectChange(goalId)`).
+
+- **Granting**: completing the source auto-grants. `grantTaskReward(task)` fires from `toggleTask` when `done` becomes true; goal completion fires from `checkGoalRewardCompletion(goal)` (progress �0� 100 via `computeGoalProgress`), called from the goal-progress mutation points: `toggleTask` (for the task's parent goal), `toggleHabitDay`, `toggleMilestone`, `adjustGoalProgress`, and the goal modal onSubmit. Toast: `�x}0 {icon} {name} unlocked!`.
+- **Dedup / immutability**: one grant per source, forever. `rewardGrants` doc id is **deterministic**: `task:{id}:completed` / `goal:{id}:completed`. `grantReward` checks `state.rewardGrants` then a remote `.get()` before writing. Changing/removing `attachedRewardId` after a grant never revokes the grant.
+- **`rewardGrants` shape**: `{ id: 'source:type:sourceId:completed', sourceType: 'task'|'goal', sourceId, rewardId, grantedAt: Date.now(), createdAt: Date.now() }` � `createdAt` is required because `loadAllData()` orders every collection by `createdAt`.
+- **Badge**: `rewardBadgeHtml(rewardId, extraClass)` renders a gold pill `.reward-badge` (with `.goal-reward-badge` variant) shown on task rows (Tasks view, TGH tasks, category tabs, goal accordion task rows) and goal rows (`buildGoalAccordionHtml`, `renderGoalInline`) **before** completion.
+- **View**: `view-rewards` (sidebar nav-btn only, not bottom nav) �  `renderRewards()` renders reward cards (create/edit/archive/delete) + a �x"� Unlock History list of `rewardGrants`.
+- **Modal plumbing**: `buildField` (js/modal.js) now wraps every field in `<div class="modal-field" id="mf-wrap-{name}">` and supports `f.onchange` (added to the select/input) and `f.hidden` (wrapper `display:none`).
+
+### Sprint priority + scoped dashboard (Part B)
+
+- **`sprintPriority: 'primary' | 'secondary'`** on `goals`. Only shown/required when `isSprintObjective === true` � the field is hidden by default and revealed via `toggleSprintPriorityField()` (wired to the `isSprintObjective` select's onchange). No silent default: submitting a sprint objective without choosing �  toast error + no save (in both `openAddGoalModal` and the Sprint view's "New Sprint Objective" modal). Legacy sprint goals without `sprintPriority` group as **primary** (`sprintPriority !== 'secondary'`).
+- **Sprint page** (`js/sprint.js` `renderSprint`): within each Life-Area root accordion, goals are split into `�x}� Objectifs principaux` and `�xR Objectifs secondaires` subgroups (`.sprint-subgroup` + `.sprint-subgroup-title`); per-goal `buildGoalAccordionHtml` unchanged.
+- **Dashboard scoping** (`js/dashboard.js`, helper `currentSprintGoalIds()` = current-quarter `isSprintObjective` goal ids):
+  - `renderDashGoals` �  shows ONLY current-quarter sprint objectives, primary first/larger (`.dash-goal-row.primary`), secondary collapsed by default (`<details class="dash-goal-secondary">`). Non-sprint goals disappear from the Dashboard (still on category/sprint pages). Empty state links to the Sprint view.
+  - `renderDashHabits`, `renderDashWeeklyChart`, `renderDashStats`, and the achievements "Tasks by category"/"Habit streaks by category" + "Tasks this week"/"Best habit streak" stats are scoped to sprint tasks/habits.
+  - **Intentionally global** (per user decision): energy widget (`renderDashEnergy`), morning/afternoon check-ins (`renderDashCheckins` � journal-based), captures, and the achievements time-logged stat + Recent Wins.
+
+## v1.18.0 � Goal picker (button-based, replaces the text dropdown)
+
+### Reusable component (`js/goal-picker.js`)
+
+The parent-Goal selector in the Add/Edit **Task** and Add/Edit **Habit** modals is no longer a text dropdown (the old `buildGoalOptions` helper was **deleted** from `js/helpers.js`). It is now a shared multi-step button selector exposed as a generic modal field type `type: 'goal-picker'` (dispatched by `js/modal.js` `buildField`):
+
+- **Field config**: `{ name: 'goalId', type: 'goal-picker', goalPickerParent: 'task'|'habit', value: initialGoalId }`. The selected goal id lives in a hidden `<input id="mf-goalId">` so the generic modal submit handler (`#mf-*` scan) reads it exactly like a regular field. Field state lives in `window._goalPickers` (keyed by field name; `parent`, `path`, `nodeId`, `selectedId`).
+- **Summary** (when not picked): a "�x}� Choisir un goal" button. (when picked): goal title chip + category badge + **Changer** (reopens the picker) and **�** (clears).
+- **Step 1 � Life Areas**: one big button per root category (`getCategoryChildren(null)`). "Non classé" goals (`categoryId` null) render as a separate section below so nothing becomes unreachable.
+- **Step 2+ � descent**: each category node renders (a) any Goals directly on it as cards (title + mini `prog-track` progress bar) and (b) its direct children as buttons (recursive descent, same tree as the sidebar accordion; a `⬺` marker indicates a child with its own children). Reaches every node that owns goals.
+- **Goal card click** �  `goalPickerSelect` sets the hidden input + summary.
+- **Breadcrumb**: `�x Life Areas ⬺ [root] ⬺ [child] ⬦`, every crumb clickable (`goalPickerPick` truncates the path) to jump back to any step.
+- **"�9 Nouveau Goal ici"**: shown on any category node � stashes every current modal field (`goalPickerStashAll`, reads all `#modal-box [id^="mf-"]`), opens `openAddGoalModal(null, { categoryId: nodeId }, onCreated)` (new `onCreated` callback in `js/goals.js`), then reopens the parent modal via `goalPickerReopenParent` with the new goal selected. This is the same stash-and-reopen pattern used by rewards inline creation.
+- **Interop**: `taskRewardSelectChange` (js/rewards.js) still stashes `mf-goalId` correctly because the picker keeps the hidden input.
+
+### Modal changes
+
+- `openAddTaskModal(prefill, captureId, item, overrides)` � `goalId` field now `type: 'goal-picker'`, `goalPickerParent: 'task'`. `overrides.goalId` still re-seeds the picker (used by inline reward creation + goal-picker "+ Nouveau Goal ici").
+- `openAddHabitModal(item, overrides)` � `goalId` field now `type: 'goal-picker'`, `goalPickerParent: 'habit'`. Sets `window._editingHabit` (mirrors `_editingTask`). `overrides.name/frequency/deadline` now honored for the non-editing case so the stash-and-reopen flow preserves typed values.
+- `openAddGoalModal(item, prefill, onCreated)` � new optional `onCreated(goalId)` callback fired after a successful create (also after edit, with the existing id).
+
+## v1.19.0 � Events fused into Tasks + recurring tasks
+
+### A. Calendar creation = Task only (local events removed)
+
+- `state.events` deleted from the state shape (`js/state.js`); `'events'` removed from the Firestore `collections` array (`js/data.js`). Legacy `events` docs in Firestore are never read again (no migration needed).
+- `js/calendar.js`: local-event modal functions **`openAddEventModal` / `openAppEventModal` deleted**; read-only `openExternalEventModal` (Google/Outlook) kept. `buildAllEvents()` no longer maps `state.events` � the four remaining sources are **tasks** (by `dueDate`), **goals** (by `deadline`, �x}�), **Google** and **Outlook** (read-only).
+- **`onDateClick(info)` �  `openAddTaskModal('', null, null, { dueDate: info.dateStr })`** and the `+ Task` button �  `openAddTaskModal()` � same modal, one creation path.
+- Calendar toolbar `+ Event` button relabelled **`+ Task`** (`index.html`); calendar nav sub in `js/router.js` renamed "Time blocking & tasks".
+- Tasks now carry the calendar time fields `startTime` / `endTime` (HH:MM, nullable) � the display-only 30-min default (`end = start + 30min`, computed in `buildFcEvent`) is still never persisted.
+
+### B. Task recurrence (per-occurrence completion, no migration)
+
+New optional task fields: `recurrence: { frequency: 'daily'|'weekly'|'monthly', daysOfWeek: number[]|null (0=Sun..6=Sat), endDate: 'YYYY-MM-DD'|null }`, `completions: { dateKey: boolean }`, `exceptions: string[]` (skipped `dateKey`s). One-off tasks keep the binary `done` flag � nothing changes for them.
+
+- **FullCalendar rendering** (`js/calendar.js` `buildTaskRecurringEvent`): daily & weekly use FC **native recurrence** (`startRecur` = `dueDate`, `endRecur` = `endDate + 1 day` since FC's is exclusive, `daysOfWeek` for weekly); monthly uses the **rrule plugin** (`new RRule({ freq: RRule.MONTHLY, dtstart, until })` � rrule's `until` is inclusive). `rrule@2.7.1` + `@fullcalendar/rrule@6.1.21` scripts added to `index.html` (after the core interaction script). Timed recurring tasks set `startTime`/`endTime` on the recur spec.
+- **Per-instance rendering** (`eventContent: taskOccurrenceContent`): every rendered occurrence shows a per-date checkbox (`toggleTaskOccurrence` �  sets `completions[dateKey]`), a title (click �  edit the whole series via `openAddTaskModal`), and a skip button (`skipTaskOccurrence` �  appends to `exceptions`; skipped occurrences render dimmed with an � � restore `unskipTaskOccurrence`). Inline buttons call `event.stopPropagation()` so FC's `eventClick` doesn't fire. One-off tasks / goals / external events return `null` �  default FC rendering. Event `id`/`groupId` are `task-{id}`/`grp-{id}`.
+- **Task lists** (`js/tasks.js` `renderTasks`, `js/habits.js` `renderTghTasks`, `js/goals.js` `buildGoalAccordionHtml`, `js/categories.js` `renderTaskInline`/`renderTabTasks`): recurring tasks show a �x� `.recurring-badge`; their checkbox reflects *today's* occurrence (`completions[dk()]`) and is `.disabled` when the task doesn't occur today (`taskOccursOnDate`). `toggleTask` routes recurring �  `toggleTaskOccurrence(id, dk())`.
+- **Task modal** (`js/tasks.js`): new fields `startTime`, `endTime`, `isRecurring` (select), and hidden-unless-recurring `frequency` / `daysOfWeek` / `endDate` (`toggleTaskRecurrenceFields`). Weekly recurrence requires �0�1 day (toast if missing). `goalPickerStashAll` reads all `#mf-*` so the new fields stash/reopen automatically; `openAddTaskModal` overrides extended for all six fields.
+- **Goal progress** (`js/sprint.js` `computeGoalProgress`): one-off tasks remain binary (`done`/total); recurring tasks contribute via **`computeTaskConsistency(task)`** (`js/habits.js`) which projects `completions` onto a habit-like `{ checkIns, frequency, deadline }` and calls the existing `computeHabitProgress()` **unchanged** (no duplicated formula) � `endDate` �  deadline-based window, else rolling 30-day consistency. Progress is the count-weighted blend of the two groups (see `progress-model-spec.md` §1).
+- **Rewards**: `grantTaskReward` fires on the first completion of a recurring task (deduped once per task via `task:{id}:completed`); `checkGoalRewardCompletion` picks up a recurring-completions-driven goal crossing 100%.
+
+## Module �  render-function �  line-anchor map (app.js)
 
 | Module | Key render function(s) | Approx. lines |
 |---|---|---|
 | Dashboard | `renderDashboard` (v1.15.0: accordion-based layout), `renderGreeting`, `renderDashStats`, `renderDashHabits` (v1.15.0: Daily/Weekly/Monthly sub-accordions), `renderDashCheckins` (v1.15.0: 7-day Morning/Afternoon strip; was `renderDashRitualSummary`), `renderDashEnergy` (v1.15.0: 3-emoji buttons + 7-day strip), `setDashEnergy` (v1.15.0), `renderDashGoals` (v1.15.0: goals progress by Life Area), `renderDashWeeklyChart` (v1.15.0), `renderDashCaptures`, `renderDashAchievements` (v1.15.0: stats + categories only; weekly chart/goals moved to own accordions), `toggleDashSection`/`toggleDashHabitGroup` (v1.15.0: per-section accordion state in `window._dashCollapsed` / `window._dashHabitGroups`) | 584-890 |
 | Onboarding | `checkOnboarding`, `showObStep`, `launchApp` | 325-436 |
-| Daily ritual | `checkRitual`, `openRitual`, `showRitualStep`, `renderRitualCheck`, `ritualToggleDayPriority`, `createTomorrowPriority`, `ensureDayPriorityTask` (v1.14.0: shared day-priority task upsert — morning focus + afternoon tomorrow), `saveRitual` (v1.12.0: morning `morningFocus` also creates an `isDayPriority` task; v1.14.0: morning = 4 questions incl. `energy` + `mood`, new 3-question afternoon check-in; v1.15.0: `energy` stored as low/medium/high via `energyLevel`) — `js/ritual.js` | — |
+| Daily ritual | `checkRitual`, `openRitual`, `showRitualStep`, `renderRitualCheck`, `ritualToggleDayPriority`, `createTomorrowPriority`, `ensureDayPriorityTask` (v1.14.0: shared day-priority task upsert � morning focus + afternoon tomorrow), `saveRitual` (v1.12.0: morning `morningFocus` also creates an `isDayPriority` task; v1.14.0: morning = 4 questions incl. `energy` + `mood`, new 3-question afternoon check-in; v1.15.0: `energy` stored as low/medium/high via `energyLevel`) � `js/ritual.js` | � |
 | Quick capture / Inbox | `saveCapture`, `toggleVoice`, `updateInboxBadge`, `renderInbox`, `processCapture`, `dismissCapture` | 736-860 |
-| Tasks | `renderTasks` (Today/Upcoming/All — `isDayPriority` first + ⭐ badge), `renderTghTasks`, `openAddTaskModal(prefill, captureId, item, overrides)`, `toggleTask`, `deleteTask`, `startTaskTimer`, `updateTimerDisplay`, `completeTimer`, `clearTimer`, `openPauseScreen`; task mutations re-render calendar on `view-calendar` | 860-1096 |
+| Tasks | `renderTasks` (Today/Upcoming/All � `isDayPriority` first + ⭐ badge; v1.19.0: �x� recurrence badge + today-occurrence checkbox), `renderTghTasks`, `openAddTaskModal(prefill, captureId, item, overrides)` (v1.19.0: `startTime`/`endTime`/`isRecurring`/`frequency`/`daysOfWeek`/`endDate` fields + `toggleTaskRecurrenceFields`; v1.21.0� v1.24.0: `.modal-recur-wrap` SHARED `recurBlockHtml({checked: showRec, selected, disabled})` customBody at top (js/recur.js) = "Récurrent" checkbox + chips row; swap rule via `taskModalPickRecurrence(freq)` (checks the box + auto-expands "Options avancées"), checkbox via `modalRecurCheck(el)` (uncheck CLEARS `mf-frequency/mf-daysOfWeek/mf-endDate` + weekday toggles + highlight �  no phantom rule; check �  fresh `'daily'` default); `_recurAdvancedOpen = showRec` on open + `updateRecurAdvancedLabel()` (link hidden while one-off); `syncRecurFieldsVisibility()` shows only `daysOfWeek` (weekly) + `endDate` (recurrent + advanced) � `isRecurring`/`frequency` wrappers permanently hidden value-carriers; v1.23.0: `daysOfWeek` field is `type: 'weekdays'` � 7 shared toggle buttons L M M J V S D (recur.js), pre-checked on edit, write to hidden `mf-daysOfWeek`, `taskModalPickRecurrence` also calls `setRecurWeekdays`), `toggleTask` (v1.19.0: recurring �  `toggleTaskOccurrence(id, dk())`), `taskOccursOnDate` (v1.24.0: `'3_months'` branch � same day of month + `monthDiff �0� 0 && % 3 === 0`), `toggleTaskOccurrence`, `skipTaskOccurrence`, `unskipTaskOccurrence`, `deleteTask`, `startTaskTimer`, `updateTimerDisplay`, `completeTimer`, `clearTimer`, `openPauseScreen`; task mutations re-render calendar on `view-calendar` | 860-1096 |
 | 3-Month Sprint (unified with goals) | `renderSprint`, `toggleSprintRootExpand`, `computeSprintGoalProgress`, `getQuarterLabel`, `getQuarterStart/End` | ~1523-1650 |
 | Notes | `renderNotesList`, `stripHtml`, `openNote`, `saveCurrentNote`, `createNoteFromCapture` | ~1326-1440 |
 | Documents (Storage) | `handleFileUpload`, `renderDocuments`, `openDocument`, `deleteDocument` | ~1440-1550 |
 | Calendar (Google) | `handleGcalAuth`, `fetchGoogleCalendarEvents`, `connectGoogleCalendar`, `disconnectGoogleCalendar` | ~1550-1630 |
 | Calendar (Outlook/MSAL) | `initMSAL`, `connectOutlookCalendar`, `fetchOutlookCalendarEvents`, `disconnectOutlookCalendar` | ~1630-1740 |
-| Calendar (FullCalendar v6 render) | `renderCalendar`, `ensureCalendar`, `refreshCalendarEvents`, `buildAllEvents`, `buildFcEvent` (tasks + goals-by-`deadline` + events, `end = start + 30min` display-only), `onDateClick` → `openAddEventModal(key)`, `onEventClick` → edit task / edit goal / edit event (`openAppEventModal`) / readonly sync (`openExternalEventModal`), `openAddEventModal(prefillDate)`, `openAppEventModal(item)`, `openExternalEventModal(ev)`, `restoreCalendarConnections` — `js/calendar.js` | — |
-| Goals & Habits (Suivi — onglets dynamiques) | `renderSuiviTabBar`, `renderSuiviActiveTab`, `renderSuiviList`, `openAddSuiviTabModal`, `removeSuiviTab`, `rerenderGoalsList`, `buildGoalAccordionHtml`, `toggleGoalExpand`, `renderGoals`, `renderTabGoals`, `renderTghTasks`, `openAddGoalModal(item)`, `adjustGoalProgress`, `deleteGoal`, `toggleMilestone`, `renderHabits`, `renderHeatmap`, `calcStreak`, `computeHabitProgress`, `daysBetween`, `toggleHabitToday`, `openAddHabitModal(item, overrides)`, `deleteHabit` | ~1860-2460 |
+| Calendar (FullCalendar v6 render) | `renderCalendar`, `ensureCalendar`, `refreshCalendarEvents`, `buildAllEvents` (v1.19.0: tasks by `dueDate` + goals by `deadline` + Google + Outlook � local `events` removed), `buildFcEvent` (end = start + 30min display-only), `buildTaskRecurringEvent` (v1.19.0: FC-native recurrence for daily/weekly, rrule for monthly; **v1.24.0**: `'3_months'` �  same rrule object with `interval: 3`), `nextDayKey`, `taskOccurrenceContent` (v1.19.0: per-occurrence checkbox/title/skip via `eventContent`; v1.20.0: list view gets simplified checkbox+title; **v1.20.1**: returns `true` for non-recurring/non-task events so FC6 renders default title content � `null` AND `undefined` both render an EMPTY event in FC v6 (ContentInjector: only `customGeneratorRes === true` �  `useDefault`); list view gets simplified checkbox+title), `onEventDidMount` (v1.20.0: injects `.ev-hover-check` button on non-recurring task events), `onDateClick` �  `openCalQuickCreate(info)` (v1.20.0; was `openAddTaskModal`), `onCalSelect` (v1.20.0: drag-to-create �  `openCalQuickCreate`), `openCalQuickCreate({ x, y, dueDate, startTime, endTime, anchorEl })` (v1.20.0: quick-create popover; v1.24.0: syncs the shared recurrence block � `recurBlockHtml` checkbox checked = `_qcRecEnabled`, chips `disabled` when one-off), `closeCalQuickCreate`, `submitCalQuickCreate(chip)` (v1.20.0: creates task with `goalId:null`, same as `isDayPriority`; v1.21.0: chip arg �  immediate create with `buildQuickRecurrence(chip, dueDate)`, remembers `_qcChip`; v1.22.0: rule builder + chip render moved to shared js/recur.js; **v1.24.0**: chip click enables recurrence, Enter/button uses `_qcRecEnabled ? buildQuickRecurrence(_qcChip, dueDate) : null`), `qcRecurCheck(el)` (v1.24.0: "Récurrent" checkbox in the popover � uncheck resets `_qcChip='daily'` + clears highlight, no phantom rule), `openCalQuickCreateFullModal` (v1.20.0: transfers typed title+dates into `openAddTaskModal`; v1.21.0: pre-fills recurrence from `_qcChip`; v1.24.0: gates `rec` on `_qcRecEnabled`), `onEventClick` �  edit task series / edit goal / readonly sync (`openExternalEventModal`), `openExternalEventModal(ev)`, `restoreCalendarConnections` � `js/calendar.js` | � |
+| Goals & Habits (Suivi � onglets dynamiques) | `renderSuiviTabBar`, `renderSuiviActiveTab`, `renderSuiviList`, `openAddSuiviTabModal`, `removeSuiviTab`, `rerenderGoalsList`, `buildGoalAccordionHtml`, `toggleGoalExpand`, `renderGoals`, `renderTabGoals`, `renderTghTasks`, `openAddGoalModal(item, prefill, onCreated)` (v1.18.0: optional `onCreated(goalId)` callback), `adjustGoalProgress`, `deleteGoal`, `toggleMilestone`, `renderHabits`, `renderHeatmap`, `calcStreak` (v1.24.0: `'3_months'` branch � steps back 3 months per streak unit), `computeHabitProgress` (v1.24.0: `'3_months'` branches in deadline + rolling modes using `triMonthKey`/`triMonthsBetweenKeys`), `computeTaskConsistency` (v1.19.0: projects a recurring task's `completions` onto a habit-like object and calls `computeHabitProgress` � v1.24.0: passes through `'3_months'`), `monthKey`, `monthsBetweenKeys`, `triMonthKey` (v1.24.0: `YYYY-Qn` calendar-quarter bucket), `triMonthsBetweenKeys` (v1.24.0: `max(1, ceil(monthsBetweenKeys/3))`), `daysBetween`, `toggleHabitToday`, `openAddHabitModal(item, overrides)` (v1.18.0: goal field = `goal-picker`, `overrides.name/frequency/deadline` honored, sets `window._editingHabit`), `deleteHabit` | ~1860-2460 |
 | Journal | `renderJournal`, `saveJournalField` | ~2100-2140 |
 | Family mode | `renderFamily`, `renderBabyCountdown`, `renderFamilyBlocks`, `openEditFamilyBlock`, `deleteFamilyBlock`, `renderBabyMilestones`, `toggleBabyMilestone`, `renderFamilyScore`, `initFamilyTabs` | ~2140-2310 |
 | Meals (Family sub-tab) | `renderRecipes`, `openRecipeModal(item)`, `deleteRecipe`, `renderMealPlan`, `openMealPlanModal`, `generateGroceryList` | ~2310-2460 |
@@ -435,10 +507,13 @@ Every category tab (tasks / goals / habits / list — manual or auto-created) ca
 | Finance import | `scripts/finance-import/import_finance.py` | external script |
 | Time Audit | `renderTimeAudit` (groups entries by root category) | ~2530-2580 |
 | Wins log | `logWin(categoryId?)`, `renderWins` (groups by root category) | ~2580-2610 |
-| Generic modal system | `openModal`, `buildField`, `closeModal` | ~2610-2670 |
+| Rewards (v1.17.0) | `renderRewards`, `openAddRewardModal(item, onCreated)`, `toggleRewardArchived`, `deleteReward`, `grantTaskReward(task)`, `grantGoalReward(goal)`, `checkGoalRewardCompletion(goal)` (completion detection point, called from the goal-progress mutation points), `rewardBadgeHtml(rewardId)`, `buildRewardOptions(includeNew)`, `taskRewardSelectChange`, `goalRewardSelectChange(goalId)`, `toggleSprintPriorityField` � `js/rewards.js` | � |
+| Goal picker (v1.18.0) | `goalPickerFieldHtml(f)` (modal field `type: 'goal-picker'`, dispatched by `buildField`), `goalPickerOpen/Render/Pick/Home/Select/Clear/RenderSummary/CreateNew` � button-based Life Area �  subcategory �  goal selector with breadcrumb + "+ Nouveau Goal ici" inline creation (stash-and-reopen). State `window._goalPickers`. � `js/goal-picker.js` | � |
+| Quick recurrence (v1.22.0� v1.24.0, shared) | `RECUR_CHIPS` (v1.24.0: 4 chips `daily/weekly/monthly/3_months` � "Une fois" removed, handled by the unchecked checkbox), `recurChipsHtml(selected, disabled)` (chip row markup, `.selected` highlight, `disabled` attr when one-off), `recurBlockHtml({checked, selected, disabled})` (v1.24.0: "Récurrent" checkbox + chip row on one line), `buildQuickRecurrence(chip, dueDate)` (chip �  `{frequency, daysOfWeek, endDate:null}` or null; weekly fills daysOfWeek from reference date's weekday, monthly/3_months implied via dueDate+rrule, 'once' �  null defensive), `setRecurChipsHighlight(chip)` (global `.qc-recur-chip` highlight), `window.onRecurChipClick(chip)` + `window.onRecurCheck(el)` (dispatchers: popover `.active` �  `submitCalQuickCreate(chip)`/`qcRecurCheck(el)`, else modal �  `taskModalPickRecurrence(chip)`/`modalRecurCheck(el)`). **v1.23.0**: weekday toggles � `RECUR_WEEKDAYS` (L M M J V S D �  `data-wd` = getDay() index 0=Dim), `parseWeekdays(str)`, `recurWeekdaysHtml(selectedDays, forId)` (7 `.recur-weekday` buttons, multi-select, hidden-input sync via `data-for`), `toggleRecurWeekday(btn)`, `getRecurWeekdays(root)` (DOM or id), `setRecurWeekdays(root, days)`. Consumed by js/calendar.js + js/tasks.js + js/modal.js (field type `weekdays`) � no duplication. � `js/recur.js` | � |
+| Generic modal system | `openModal`, `buildField` (v1.23.0: new field type `weekdays` �  shared `recurWeekdaysHtml(parseWeekdays(f.value), id)` + hidden `mf-<name>` input in sync), `closeModal` | ~2610-2670 |
 | Nudges/end-of-day | `startHourlyNudge`, `hourlyNudge`, `checkEndOfDay` | ~2670-2710 |
-| Water reminder + settings (v1.11.0) | `startWaterReminder`, `stopWaterReminder`, `waterNotify`, `openSettings`, `getWaterSettings` — `js/water.js` (separate module, not in app.js) | — |
-| Bottom nav (v1.13.0) | `renderBottomNav`, `updateBottomNav`, `getBottomNavPrefs`, `bnActiveKey`, `resolveRootByName`, `BOTTOM_NAV_ENTRIES` — `js/router.js`; editor `initBnEditor`/`renderBnEditor`/`bnToggle`/`bnMove` — `js/water.js` | — |
+| Water reminder + settings (v1.11.0) | `startWaterReminder`, `stopWaterReminder`, `waterNotify`, `openSettings`, `getWaterSettings` � `js/water.js` (separate module, not in app.js) | � |
+| Bottom nav (v1.13.0) | `renderBottomNav`, `updateBottomNav`, `getBottomNavPrefs`, `bnActiveKey`, `resolveRootByName`, `BOTTOM_NAV_ENTRIES` � `js/router.js`; editor `initBnEditor`/`renderBnEditor`/`bnToggle`/`bnMove` � `js/water.js` | � |
 
 Use this table to jump straight to a `view_range` instead of loading the full file.
 

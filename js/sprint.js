@@ -17,9 +17,30 @@ function computeGoalProgress(goal) {
   const habitDetails = [];
 
   if (taskCount > 0) {
-    const done = tasks.filter(t => t.done).length;
-    taskProgress = done / taskCount;
-    details.push(`${done}/${taskCount} tasks done (${Math.round(taskProgress * 100)}%)`);
+    // One-off tasks keep the binary done/total. Recurring tasks use the
+    // Habit consistency formula (computeTaskConsistency → computeHabitProgress).
+    const oneOff = tasks.filter(t => !t.recurrence);
+    const recurring = tasks.filter(t => t.recurrence);
+    let oneOffProgress = null;
+    let recProgress = null;
+    if (oneOff.length) {
+      const done = oneOff.filter(t => t.done).length;
+      oneOffProgress = done / oneOff.length;
+      details.push(`${done}/${oneOff.length} tasks done (${Math.round(oneOffProgress * 100)}%)`);
+    }
+    if (recurring.length) {
+      let total = 0;
+      for (const t of recurring) total += computeTaskConsistency(t).progress;
+      recProgress = total / recurring.length;
+      details.push(`avg ${Math.round(recProgress * 100)}% recurring-task consistency`);
+    }
+    if (oneOffProgress !== null && recProgress !== null) {
+      taskProgress = (oneOffProgress * oneOff.length + recProgress * recurring.length) / (oneOff.length + recurring.length);
+    } else if (oneOffProgress !== null) {
+      taskProgress = oneOffProgress;
+    } else {
+      taskProgress = recProgress;
+    }
   }
 
   if (habitCount > 0) {
@@ -96,6 +117,18 @@ function renderSprint() {
   let html = '';
   for (const [rootKey, goals] of Object.entries(grouped)) {
     const collapsed = (window._collapsedSprintRoots || new Set()).has(rootKey);
+    const prim = goals.filter(g => g.sprintPriority !== 'secondary');
+    const sec = goals.filter(g => g.sprintPriority === 'secondary');
+    const primBlock = prim.length ? `
+      <div class="sprint-subgroup">
+        <div class="sprint-subgroup-title">🎯 Objectifs principaux</div>
+        ${prim.map(g => buildGoalAccordionHtml(g)).join('')}
+      </div>` : '';
+    const secBlock = sec.length ? `
+      <div class="sprint-subgroup">
+        <div class="sprint-subgroup-title">📌 Objectifs secondaires</div>
+        ${sec.map(g => buildGoalAccordionHtml(g)).join('')}
+      </div>` : '';
     html += `<div class="sprint-root-accordion">
       <div class="sprint-root-header" onclick="toggleSprintRootExpand('${rootKey}')">
         <span class="sprint-root-chevron${collapsed ? '' : ' expanded'}">▶</span>
@@ -103,7 +136,8 @@ function renderSprint() {
         <span class="sprint-root-count">${goals.length} objective${goals.length > 1 ? 's' : ''}</span>
       </div>
       <div class="sprint-root-body${collapsed ? ' collapsed' : ''}">
-        ${goals.map(g => buildGoalAccordionHtml(g)).join('')}
+        ${primBlock}
+        ${secBlock}
       </div>
     </div>`;
   }
@@ -130,12 +164,17 @@ document.getElementById('add-sprint-obj-btn').addEventListener('click', () => {
     fields: [
       { name: 'title', label: 'Objective', placeholder: 'e.g. Prepare for baby arrival', required: true },
       { name: 'categoryId', label: 'Category', type: 'select', options: buildCategoryOptions() },
+      { name: 'sprintPriority', label: 'Objective Priority', type: 'select', value: '', options: [['', '— Choose —'], ['primary', '🎯 Primary'], ['secondary', '📌 Secondary']] },
       { name: 'w1', label: 'Weekly Action 1', placeholder: 'e.g. Book hospital tour' },
       { name: 'w2', label: 'Weekly Action 2', placeholder: 'e.g. Set up nursery' },
       { name: 'w3', label: 'Weekly Action 3', placeholder: 'e.g. Prepare hospital bag' }
     ],
     submit: 'Add Objective',
     onSubmit: async v => {
+      if (!v.sprintPriority) {
+        toast('Choose whether this is a Primary or Secondary objective.', 'error', 4000);
+        return;
+      }
       const weeklyActions = [v.w1, v.w2, v.w3].filter(Boolean);
       const catId = v.categoryId || null;
       const lifeArea = catId ? getLifeArea(catId) : '';
@@ -144,6 +183,7 @@ document.getElementById('add-sprint-obj-btn').addEventListener('click', () => {
         id, title: v.title, area: lifeArea, categoryId: catId,
         progress: 0, milestones: [], weeklyActions,
         isSprintObjective: true, sprintQuarter: getQuarterLabel(),
+        sprintPriority: v.sprintPriority,
         deadline: null, createdAt: Date.now()
       };
       state.goals.unshift(data);

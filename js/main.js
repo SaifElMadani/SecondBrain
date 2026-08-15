@@ -4,6 +4,7 @@
 
 import './firebase-init.js';
 import './utils.js';
+import './recur.js';
 import './state.js';
 import './helpers.js';
 import './data.js';
@@ -16,6 +17,7 @@ import './inbox.js';
 import './tasks.js';
 import './pomodoro.js';
 import './sprint.js';
+import './rewards.js';
 import './notes.js';
 import './documents.js';
 import './calendar.js';
@@ -31,6 +33,7 @@ import './nudge.js';
 import './water.js';
 import './hobbies.js';
 import './categories.js';
+import './goal-picker.js';
 import './ideas.js';
 import './finance.js';
 
